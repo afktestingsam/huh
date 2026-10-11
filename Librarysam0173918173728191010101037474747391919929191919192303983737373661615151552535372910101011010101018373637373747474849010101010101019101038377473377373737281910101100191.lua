@@ -1,3 +1,6 @@
+-- ============================================================
+-- UI_LIBRARY.LUA (Reemplaza este código en tu GitHub)
+-- ============================================================
 local Library = {}
 
 function Library:CreateWindow()
@@ -15,7 +18,7 @@ function Library:CreateWindow()
 	local WHITE = Color3.new(1,1,1)
 
 	-- ==========================================
-	-- SISTEMA DE DATOS Y SESIÓN
+	-- SISTEMA DE SESIÓN Y DATOS
 	-- ==========================================
 	local WHITELIST = {
 		["jerehzxs"]  = "OWNER", ["cloudd7qo"] = "TESTER",
@@ -26,23 +29,19 @@ function Library:CreateWindow()
 	local function HasSession()
 		local ok, c = pcall(function() if readfile then return readfile("wb_session.txt") end end)
 		if not ok or not c then return false end
-		local t = tonumber(c)
-		if not t then return false end
-		return (os.time() - t) < 86400
+		return (os.time() - (tonumber(c) or 0)) < 86400
 	end
 	local function SaveSession() pcall(function() if writefile then writefile("wb_session.txt", tostring(os.time())) end end) end
 
-	local function LoadUsage()
-		local ok, data = pcall(function() if readfile then return readfile("wb_usage.json") end end)
-		if ok and data then
-			local ok2, tbl = pcall(function() return HttpService:JSONDecode(data) end)
-			if ok2 and type(tbl)=="table" then return tbl end
+	local ToggleUsage = {}
+	pcall(function()
+		if readfile then
+			local data = readfile("wb_usage.json")
+			if data then ToggleUsage = HttpService:JSONDecode(data) or {} end
 		end
-		return {}
-	end
+	end)
 	local function SaveUsage(tbl) pcall(function() if writefile then writefile("wb_usage.json", HttpService:JSONEncode(tbl)) end end) end
 
-	local ToggleUsage = LoadUsage()
 	local AllToggles = {}
 	local ToggleRegistry = {}
 
@@ -50,6 +49,40 @@ function Library:CreateWindow()
 	if OldGUI then OldGUI:Destroy() end
 	local OldCoreGUI = CoreGui:FindFirstChild("WelcomeBackUI")
 	if OldCoreGUI then OldCoreGUI:Destroy() end
+
+	-- ==========================================
+	-- CARGA DE FUENTES (MATCHA FONT)
+	-- ==========================================
+	local MatchaFont = nil
+	local FontReady = false
+	local function LoadMatchaFont()
+		if not (isfile and writefile and getcustomasset) then return end
+		local ttfFile = "CNP_Matcha.ttf"
+		local jsonFile = "CNP_Matcha.json"
+		local ok = pcall(function()
+			if not isfile(ttfFile) then
+				local data = game:HttpGet("https://raw.githubusercontent.com/samxzqpq/fonts/main/Matcha%20World.ttf")
+				if not data or #data < 100 then return end
+				writefile(ttfFile, data)
+			end
+		end)
+		if not ok then return end
+		pcall(function()
+			local asset = getcustomasset(ttfFile)
+			local jsonData = HttpService:JSONEncode({name="Matcha",faces={{name="Regular",weight=400,style="normal",assetId=asset}}})
+			writefile(jsonFile, jsonData)
+			local family = getcustomasset(jsonFile)
+			MatchaFont = Font.new(family, Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+			FontReady = true
+		end)
+	end
+	task.spawn(LoadMatchaFont)
+	local function ApplyFont(obj)
+		if not MatchaFont then return end
+		if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+			pcall(function() obj.FontFace = MatchaFont end)
+		end
+	end
 
 	-- ==========================================
 	-- CREACIÓN DE INTERFAZ BASE
@@ -60,35 +93,14 @@ function Library:CreateWindow()
 	GUI.IgnoreGuiInset = true
 	GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	GUI.DisplayOrder = 999
-	
-	-- Intenta ponerlo en CoreGui para que no se borre, si falla va a PlayerGui
-	local successCore = pcall(function() GUI.Parent = CoreGui end)
-	if not successCore then GUI.Parent = PlayerGui end
+	pcall(function() GUI.Parent = CoreGui end)
+	if not GUI.Parent then GUI.Parent = PlayerGui end
 
-	local ExclusiveGroups = {}
-	local function RegisterExclusive(groupId, toggleName)
-		if not ExclusiveGroups[groupId] then ExclusiveGroups[groupId] = { toggles = {}, activeName = nil } end
-		table.insert(ExclusiveGroups[groupId].toggles, toggleName)
-	end
-	local function CanActivate(toggleName)
-		for _, g in pairs(ExclusiveGroups) do
-			for _, n in ipairs(g.toggles) do
-				if n == toggleName then
-					if g.activeName and g.activeName ~= toggleName then return false, g.activeName end
-					return true
-				end
-			end
-		end
-		return true
-	end
-	local function SetExclusiveActive(toggleName)
-		for _, g in pairs(ExclusiveGroups) do
-			for _, n in ipairs(g.toggles) do if n == toggleName then g.activeName = toggleName return end end
-		end
-	end
-	local function ClearExclusiveActive(toggleName)
-		for _, g in pairs(ExclusiveGroups) do if g.activeName == toggleName then g.activeName = nil end end
-	end
+	GUI.DescendantAdded:Connect(function(obj) task.defer(function() ApplyFont(obj) end) end)
+	task.spawn(function()
+		while not FontReady do task.wait(0.1) end
+		for _, obj in ipairs(GUI:GetDescendants()) do ApplyFont(obj) end
+	end)
 
 	local function ShowNotif(title, text, dur)
 		dur = dur or 3
@@ -148,23 +160,18 @@ function Library:CreateWindow()
 	MainStroke.Color = Color3.fromRGB(42,42,47); MainStroke.Thickness = 1; MainStroke.Transparency = 0.15
 
 	-- ==========================================
-	-- TOP BAR Y ARRASTRE (DRAGGING)
+	-- ARRASTRE Y TOP BAR
 	-- ==========================================
 	local Top = Instance.new("Frame")
 	Top.Name = "Top"; Top.Size = UDim2.new(1,0,0,46); Top.BackgroundTransparency = 1; Top.Active = true; Top.Parent = Main
 	local TopLine = Instance.new("Frame")
 	TopLine.Size = UDim2.new(1,0,0,1); TopLine.Position = UDim2.new(0,0,1,-1); TopLine.BackgroundColor3 = Color3.fromRGB(43,43,48); TopLine.BorderSizePixel = 0; TopLine.Parent = Top
 
-	-- DRAGGING LOGIC
 	local dragging, dragInput, dragStart, startPos
 	Top.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = true
-			dragStart = input.Position
-			startPos = Main.Position
-			input.Changed:Connect(function()
-				if input.UserInputState == Enum.UserInputState.End then dragging = false end
-			end)
+			dragging = true; dragStart = input.Position; startPos = Main.Position
+			input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
 		end
 	end)
 	Top.InputChanged:Connect(function(input)
@@ -218,51 +225,7 @@ function Library:CreateWindow()
 	NotifBadge.TextColor3 = WHITE; NotifBadge.TextSize = 9; NotifBadge.Font = Enum.Font.GothamBold; NotifBadge.ZIndex = 6; NotifBadge.Parent = NotificationDot
 
 	-- ==========================================
-	-- NOTIFICATION PANEL DESPLEGABLE
-	-- ==========================================
-	local NotifPanel = Instance.new("Frame")
-	NotifPanel.Size = UDim2.fromOffset(200,220); NotifPanel.Position = UDim2.new(1,-210,0,50)
-	NotifPanel.BackgroundColor3 = Color3.fromRGB(16,16,21); NotifPanel.Visible = false
-	NotifPanel.ZIndex = 20; NotifPanel.Parent = Main
-	Instance.new("UICorner", NotifPanel).CornerRadius = UDim.new(0,10)
-	local NotifPanelStroke = Instance.new("UIStroke", NotifPanel)
-	NotifPanelStroke.Color = Color3.fromRGB(45,45,50)
-	
-	local NPTitle = Instance.new("TextLabel")
-	NPTitle.Size = UDim2.new(1,0,0,30); NPTitle.BackgroundTransparency = 1
-	NPTitle.Text = " Notifications"; NPTitle.TextColor3 = WHITE; NPTitle.TextSize = 12
-	NPTitle.Font = Enum.Font.GothamBold; NPTitle.TextXAlignment = Enum.TextXAlignment.Left; NPTitle.Parent = NotifPanel
-	local NPLine = Instance.new("Frame")
-	NPLine.Size = UDim2.new(1,0,0,1); NPLine.Position = UDim2.new(0,0,0,30)
-	NPLine.BackgroundColor3 = Color3.fromRGB(43,43,48); NPLine.BorderSizePixel = 0; NPLine.Parent = NotifPanel
-	
-	local NotifScroll = Instance.new("ScrollingFrame")
-	NotifScroll.Size = UDim2.new(1,0,1,-32); NotifScroll.Position = UDim2.new(0,0,0,32)
-	NotifScroll.BackgroundTransparency = 1; NotifScroll.BorderSizePixel = 0
-	NotifScroll.ScrollBarThickness = 2; NotifScroll.Parent = NotifPanel
-	local NotifLay = Instance.new("UIListLayout", NotifScroll)
-	NotifLay.Padding = UDim.new(0,5); NotifLay.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	
-	local NotifExample = Instance.new("Frame")
-	NotifExample.Size = UDim2.new(1,-10,0,45); NotifExample.BackgroundColor3 = Color3.fromRGB(24,24,30)
-	NotifExample.BorderSizePixel = 0; NotifExample.Parent = NotifScroll
-	Instance.new("UICorner", NotifExample).CornerRadius = UDim.new(0,6)
-	local NExTitle = Instance.new("TextLabel")
-	NExTitle.Size = UDim2.new(1,-10,0,15); NExTitle.Position = UDim2.new(0,5,0,5); NExTitle.BackgroundTransparency = 1
-	NExTitle.Text = "System"; NExTitle.TextColor3 = ACCENT; NExTitle.TextSize = 11; NExTitle.Font = Enum.Font.GothamBold; NExTitle.TextXAlignment = Enum.TextXAlignment.Left; NExTitle.Parent = NotifExample
-	local NExDesc = Instance.new("TextLabel")
-	NExDesc.Size = UDim2.new(1,-10,0,20); NExDesc.Position = UDim2.new(0,5,0,20); NExDesc.BackgroundTransparency = 1
-	NExDesc.Text = "Bienvenido de vuelta, " .. Player.Name; NExDesc.TextColor3 = Color3.fromRGB(200,200,208); NExDesc.TextSize = 10; NExDesc.Font = Enum.Font.Gotham; NExDesc.TextXAlignment = Enum.TextXAlignment.Left; NExDesc.TextWrapped = true; NExDesc.Parent = NotifExample
-
-	local NotifOpen = false
-	Notification.MouseButton1Click:Connect(function()
-		NotifOpen = not NotifOpen
-		NotifPanel.Visible = NotifOpen
-		if NotifOpen then NotificationDot.Visible = false end
-	end)
-
-	-- ==========================================
-	-- LOGIN Y NAVEGACIÓN
+	-- PANELES Y PAGINAS
 	-- ==========================================
 	local Content = Instance.new("Frame")
 	Content.Size = UDim2.new(1,0,1,-46); Content.Position = UDim2.new(0,0,0,46)
@@ -278,14 +241,6 @@ function Library:CreateWindow()
 	Profile.BackgroundColor3 = Color3.fromRGB(15,35,21); Profile.ScaleType = Enum.ScaleType.Crop; Profile.Parent = LoginPage
 	Instance.new("UICorner", Profile).CornerRadius = UDim.new(1,0)
 	local ProfileStroke = Instance.new("UIStroke", Profile); ProfileStroke.Color = ACCENT; ProfileStroke.Thickness = 3
-
-	local Welcome = Instance.new("TextLabel")
-	Welcome.Size = UDim2.fromOffset(460,32); Welcome.Position = UDim2.new(0.5,-230,0,98); Welcome.BackgroundTransparency = 1
-	Welcome.Text = "Welcome Back"; Welcome.TextColor3 = Color3.fromRGB(245,245,247); Welcome.TextSize = 24; Welcome.Font = Enum.Font.GothamBold; Welcome.Parent = LoginPage
-	
-	local Subtitle = Instance.new("TextLabel")
-	Subtitle.Size = UDim2.fromOffset(460,18); Subtitle.Position = UDim2.new(0.5,-230,0,130); Subtitle.BackgroundTransparency = 1
-	Subtitle.Text = "Enter the password"; Subtitle.TextColor3 = Color3.fromRGB(125,125,130); Subtitle.TextSize = 12; Subtitle.Font = Enum.Font.Gotham; Subtitle.Parent = LoginPage
 
 	local Password = Instance.new("TextBox")
 	Password.Size = UDim2.fromOffset(280,38); Password.Position = UDim2.new(0.5,-140,0,158)
@@ -324,22 +279,12 @@ function Library:CreateWindow()
 	local FlingPage = MakePage("Fling", 400)
 	local SkysPage = MakePage("Skys", 2000)
 	local AnimationsPage = MakePage("Animations", 800)
-	local SettingsPage = MakePage("Settings", 400)
 
-	-- ==========================================
-	-- HOME PAGE CONTENT
-	-- ==========================================
 	local BigProfile = Instance.new("ImageLabel")
 	BigProfile.Size = UDim2.fromOffset(70,70); BigProfile.Position = UDim2.new(0,20,0,16)
 	BigProfile.BackgroundColor3 = Color3.fromRGB(15,15,18); BigProfile.ScaleType = Enum.ScaleType.Crop; BigProfile.Parent = HomePage
 	Instance.new("UICorner", BigProfile).CornerRadius = UDim.new(1,0)
 	local BigStroke = Instance.new("UIStroke", BigProfile); BigStroke.Color = ACCENT; BigStroke.Thickness = 3
-
-	local OnlineDot = Instance.new("Frame")
-	OnlineDot.Size = UDim2.fromOffset(22,22); OnlineDot.Position = UDim2.new(1,-16,1,-16)
-	OnlineDot.BackgroundColor3 = ACCENT; OnlineDot.BorderSizePixel = 0; OnlineDot.ZIndex = 5; OnlineDot.Parent = BigProfile
-	Instance.new("UICorner", OnlineDot).CornerRadius = UDim.new(1,0)
-	local OS = Instance.new("UIStroke", OnlineDot); OS.Color = Color3.fromRGB(10,10,14); OS.Thickness = 3
 
 	local UserName = Instance.new("TextLabel")
 	UserName.Size = UDim2.new(1,-110,0,28); UserName.Position = UDim2.new(0,100,0,18)
@@ -351,86 +296,32 @@ function Library:CreateWindow()
 	Status.BackgroundTransparency = 1; Status.Text = "Online"; Status.TextXAlignment = Enum.TextXAlignment.Left
 	Status.TextColor3 = ACCENT; Status.TextSize = 12; Status.Font = Enum.Font.Gotham; Status.Parent = HomePage
 
-	local MostUsedTitle = Instance.new("TextLabel")
-	MostUsedTitle.Size = UDim2.new(1,-70,0,20); MostUsedTitle.Position = UDim2.new(0,20,0,100)
-	MostUsedTitle.BackgroundTransparency = 1; MostUsedTitle.Text = "Most Used Scripts"; MostUsedTitle.TextXAlignment = Enum.TextXAlignment.Left
-	MostUsedTitle.TextColor3 = Color3.fromRGB(245,245,247); MostUsedTitle.TextSize = 14; MostUsedTitle.Font = Enum.Font.GothamBold; MostUsedTitle.Parent = HomePage
+	local Reopen = Instance.new("ImageButton")
+	Reopen.Size = UDim2.fromOffset(56,56); Reopen.Position = UDim2.new(0,16,1,-72)
+	Reopen.BackgroundColor3 = Color3.fromRGB(15,15,18); Reopen.Visible = false; Reopen.Parent = GUI
+	Reopen.ScaleType = Enum.ScaleType.Crop
+	Instance.new("UICorner", Reopen).CornerRadius = UDim.new(1,0)
+	local ReopenStroke = Instance.new("UIStroke", Reopen); ReopenStroke.Color = ACCENT; ReopenStroke.Thickness = 2.5
 
-	local MostUsedList = Instance.new("Frame")
-	MostUsedList.Size = UDim2.new(1,-40,0,0); MostUsedList.Position = UDim2.new(0,20,0,128)
-	MostUsedList.BackgroundTransparency = 1; MostUsedList.AutomaticSize = Enum.AutomaticSize.Y; MostUsedList.Parent = HomePage
-	local mul = Instance.new("UIListLayout", MostUsedList)
-	mul.Padding = UDim.new(0,4); mul.SortOrder = Enum.SortOrder.LayoutOrder
+	-- Carga de Imagen de Perfil
+	task.spawn(function()
+		local content, isReady = Players:GetUserThumbnailAsync(Player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+		if isReady then 
+			Profile.Image = content; BigProfile.Image = content; Reopen.Image = content 
+		end
+	end)
 
-	local function RefreshMostUsed()
-		for _, c in ipairs(MostUsedList:GetChildren()) do if c ~= mul then c:Destroy() end end
-		local sorted = {}
-		for k, v in pairs(ToggleUsage) do
-			if ToggleRegistry[k] and v > 0 then table.insert(sorted, {name=k, count=v}) end
-		end
-		table.sort(sorted, function(a,b)
-			if a.count == b.count then return a.name < b.name end
-			return a.count > b.count
-		end)
-		if #sorted == 0 then return end
-		for i = 1, math.min(5, #sorted) do
-			local entry = Instance.new("Frame")
-			entry.Size = UDim2.new(1,0,0,30); entry.BackgroundColor3 = Color3.fromRGB(18,18,23); entry.BorderSizePixel = 0; entry.LayoutOrder = i; entry.Parent = MostUsedList
-			Instance.new("UICorner", entry).CornerRadius = UDim.new(0,8)
-			
-			local num = Instance.new("TextLabel")
-			num.Size = UDim2.fromOffset(20,20); num.Position = UDim2.new(0,4,0.5,-10); num.BackgroundColor3 = ACCENT
-			num.Text = tostring(i); num.TextColor3 = Color3.fromRGB(20,20,24); num.TextSize = 11; num.Font = Enum.Font.GothamBold; num.Parent = entry
-			Instance.new("UICorner", num).CornerRadius = UDim.new(1,0)
-			
-			local nm = Instance.new("TextLabel")
-			nm.Size = UDim2.new(1,-90,1,0); nm.Position = UDim2.new(0,30,0,0); nm.BackgroundTransparency = 1
-			nm.Text = sorted[i].name; nm.TextXAlignment = Enum.TextXAlignment.Left; nm.TextColor3 = Color3.fromRGB(225,225,232); nm.TextSize = 11; nm.Font = Enum.Font.GothamMedium; nm.Parent = entry
-			
-			local registry = ToggleRegistry[sorted[i].name]
-			local msw = Instance.new("Frame")
-			msw.Size = UDim2.fromOffset(32,18); msw.Position = UDim2.new(1,-40,0.5,-9); msw.BackgroundColor3 = Color3.fromRGB(70,70,78); msw.BorderSizePixel = 0; msw.Parent = entry
-			Instance.new("UICorner", msw).CornerRadius = UDim.new(1,0)
-			local msknob = Instance.new("Frame")
-			msknob.Size = UDim2.fromOffset(14,14); msknob.Position = UDim2.fromOffset(2,2); msknob.BackgroundColor3 = Color3.fromRGB(240,240,245); msknob.Parent = msw
-			Instance.new("UICorner", msknob).CornerRadius = UDim.new(1,0)
-			local msc = Instance.new("TextButton")
-			msc.Size = UDim2.new(1,0,1,0); msc.BackgroundTransparency = 1; msc.Text = ""; msc.ZIndex = 3; msc.Parent = entry
-			
-			local function updateMSVisual(v)
-				msw.BackgroundColor3 = v and ACCENT or Color3.fromRGB(70,70,78)
-				TweenService:Create(msknob, TweenInfo.new(0.15), {Position = v and UDim2.new(1,-16,0.5,-7) or UDim2.fromOffset(2,2)}):Play()
-			end
-			if registry then
-				updateMSVisual(registry.getActive())
-				msc.MouseButton1Click:Connect(function() registry.setActive(not registry.getActive()) end)
-				task.spawn(function()
-					while entry.Parent do
-						updateMSVisual(registry.getActive())
-						task.wait(0.15)
-					end
-				end)
-			end
-		end
+	local function MinimizeWindow()
+		Main.Visible = false
+		Reopen.Visible = true
 	end
+	MinimizeButton.MouseButton1Click:Connect(MinimizeWindow)
+	Reopen.MouseButton1Click:Connect(function()
+		Reopen.Visible = false
+		Main.Visible = true
+	end)
+	CloseButton.MouseButton1Click:Connect(function() GUI:Destroy() end)
 
-	-- ==========================================
-	-- SCRIPTS PAGE Y BUSCADOR
-	-- ==========================================
-	local ScriptsTitle = Instance.new("TextLabel")
-	ScriptsTitle.Size = UDim2.new(1,-40,0,26); ScriptsTitle.Position = UDim2.new(0,20,0,12)
-	ScriptsTitle.BackgroundTransparency = 1; ScriptsTitle.Text = "Scripts"; ScriptsTitle.TextXAlignment = Enum.TextXAlignment.Left; ScriptsTitle.TextColor3 = Color3.fromRGB(245,245,247)
-	ScriptsTitle.TextSize = 20; ScriptsTitle.Font = Enum.Font.GothamBold; ScriptsTitle.Parent = ScriptsPage
-
-	local ScriptsSearch = Instance.new("TextBox")
-	ScriptsSearch.Size = UDim2.new(1,-40,0,32); ScriptsSearch.Position = UDim2.new(0,20,0,44)
-	ScriptsSearch.BackgroundColor3 = Color3.fromRGB(18,18,23); ScriptsSearch.PlaceholderText = "Search scripts..."
-	ScriptsSearch.TextColor3 = Color3.fromRGB(240,240,240); ScriptsSearch.TextSize = 12
-	ScriptsSearch.Font = Enum.Font.Gotham; ScriptsSearch.TextXAlignment = Enum.TextXAlignment.Left; ScriptsSearch.Parent = ScriptsPage
-	Instance.new("UICorner", ScriptsSearch).CornerRadius = UDim.new(0,10)
-	local SSS = Instance.new("UIStroke", ScriptsSearch); SSS.Color = Color3.fromRGB(52,52,60)
-	local SS_Pad = Instance.new("UIPadding", ScriptsSearch); SS_Pad.PaddingLeft = UDim.new(0,32)
-	
 	local ScriptsRow = Instance.new("Frame")
 	ScriptsRow.Size = UDim2.new(1,-40,0,36); ScriptsRow.Position = UDim2.new(0,20,0,84)
 	ScriptsRow.BackgroundTransparency = 1; ScriptsRow.Parent = ScriptsPage
@@ -472,18 +363,14 @@ function Library:CreateWindow()
 	local function SelectTab(tab, pill)
 		if activeTab == tab then return end
 		if activeTab then
-			local oldTab = activeTab; local oldPill = activePill
-			TweenService:Create(oldTab, TweenInfo.new(0.18), {Position=UDim2.new(-0.15,0,0,0)}):Play()
-			if oldPill then
-				TweenService:Create(oldPill, TweenInfo.new(0.18), {BackgroundColor3 = Color3.fromRGB(20,20,26), TextColor3 = Color3.fromRGB(225,225,232)}):Play()
-				local ps = oldPill:FindFirstChildOfClass("UIStroke")
-				if ps then TweenService:Create(ps, TweenInfo.new(0.18), {Color=WHITE, Transparency = 0.82}):Play() end
-			end
-			task.delay(0.18, function() if oldTab then oldTab.Visible = false oldTab.Position = UDim2.new(0,0,0,0) end end)
+			activeTab.Visible = false
+			local oldPill = activePill
+			TweenService:Create(oldPill, TweenInfo.new(0.18), {BackgroundColor3 = Color3.fromRGB(20,20,26), TextColor3 = Color3.fromRGB(225,225,232)}):Play()
+			local ps = oldPill:FindFirstChildOfClass("UIStroke")
+			if ps then TweenService:Create(ps, TweenInfo.new(0.18), {Color=WHITE, Transparency = 0.82}):Play() end
 		end
 		activeTab = tab; activePill = pill
-		tab.Visible = true; tab.Position = UDim2.new(0.15,0,0,0)
-		TweenService:Create(tab, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position=UDim2.new(0,0,0,0)}):Play()
+		tab.Visible = true
 		TweenService:Create(pill, TweenInfo.new(0.18), {BackgroundColor3 = ACCENT:Lerp(Color3.new(0,0,0),0.7), TextColor3 = ACCENT:Lerp(Color3.new(1,1,1),0.5)}):Play()
 		local ps = pill:FindFirstChildOfClass("UIStroke")
 		if ps then TweenService:Create(ps, TweenInfo.new(0.18), {Color=ACCENT, Transparency = 0.2}):Play() end
@@ -491,28 +378,6 @@ function Library:CreateWindow()
 	MainScriptBtn.MouseButton1Click:Connect(function() SelectTab(MainScriptTab, MainScriptBtn) end)
 	ExtraBtn.MouseButton1Click:Connect(function() SelectTab(ExtraTab, ExtraBtn) end)
 
-	ScriptsSearch:GetPropertyChangedSignal("Text"):Connect(function()
-		local q = ScriptsSearch.Text:lower()
-		for _, entry in ipairs(AllToggles) do
-			if q == "" then entry.btn.Visible = true
-			else entry.btn.Visible = entry.text:lower():find(q,1,true) ~= nil end
-		end
-	end)
-
-	local function CreatePageTitle(parent, text)
-		local t = Instance.new("TextLabel")
-		t.Size = UDim2.new(1,-40,0,26); t.Position = UDim2.new(0,20,0,12); t.BackgroundTransparency = 1
-		t.Text = text; t.TextXAlignment = Enum.TextXAlignment.Left; t.TextColor3 = Color3.fromRGB(245,245,247)
-		t.TextSize = 20; t.Font = Enum.Font.GothamBold; t.Parent = parent
-	end
-	CreatePageTitle(FlingPage, "Fling Players")
-	CreatePageTitle(SkysPage, "Skys")
-	CreatePageTitle(AnimationsPage, "Animations")
-	CreatePageTitle(SettingsPage, "Settings")
-
-	-- ==========================================
-	-- BOTTOM NAVIGATION BAR
-	-- ==========================================
 	local Bottom = Instance.new("Frame")
 	Bottom.Size = UDim2.fromOffset(460,54); Bottom.Position = UDim2.new(0.5,-230,1,-60)
 	Bottom.BackgroundColor3 = Color3.fromRGB(18,18,22); Bottom.BorderSizePixel = 0; Bottom.Visible = false; Bottom.Parent = Content
@@ -538,15 +403,10 @@ function Library:CreateWindow()
 	local FlingButton = MakeNavButton("101363781360377", "Fling", 154, 76)
 	local SkysButton = MakeNavButton("107588676615037", "Skys", 230, 76)
 	local AnimationsButton = MakeNavButton("135130950196086", "Anims", 306, 76)
-	local SettingsButton = MakeNavButton("114349145444051", "Settings", 382, 76)
-
-	local function MoveNavPill(x, w)
-		TweenService:Create(NavPill, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, x, 0, 4), Size = UDim2.fromOffset(w, 46)}):Play()
-	end
 
 	local unlocked = false; local animating = false
 	local currentPageName = "Home"
-	local PageMap = {Home=HomePage, Scripts=ScriptsPage, Fling=FlingPage, Skys=SkysPage, Animations=AnimationsPage, Settings=SettingsPage}
+	local PageMap = {Home=HomePage, Scripts=ScriptsPage, Fling=FlingPage, Skys=SkysPage, Animations=AnimationsPage}
 	
 	local function SwitchPage(target, fromRight)
 		if animating or currentPageName == target or not unlocked then return end
@@ -561,49 +421,34 @@ function Library:CreateWindow()
 		FromPage.Visible = false; currentPageName = target; animating = false
 	end
 
-	HomeButton.MouseButton1Click:Connect(function() SwitchPage("Home", false) MoveNavPill(2, 76) end)
-	ScriptsButton.MouseButton1Click:Connect(function() SwitchPage("Scripts", true) MoveNavPill(78, 76) end)
-	FlingButton.MouseButton1Click:Connect(function() SwitchPage("Fling", true) MoveNavPill(154, 76) end)
-	SkysButton.MouseButton1Click:Connect(function() SwitchPage("Skys", true) MoveNavPill(230, 76) end)
-	AnimationsButton.MouseButton1Click:Connect(function() SwitchPage("Animations", true) MoveNavPill(306, 76) end)
-	SettingsButton.MouseButton1Click:Connect(function() SwitchPage("Settings", true) MoveNavPill(382, 76) end)
+	HomeButton.MouseButton1Click:Connect(function() SwitchPage("Home", false) TweenService:Create(NavPill, TweenInfo.new(0.1), {Position=UDim2.new(0,2,0,4)}):Play() end)
+	ScriptsButton.MouseButton1Click:Connect(function() SwitchPage("Scripts", true) TweenService:Create(NavPill, TweenInfo.new(0.1), {Position=UDim2.new(0,78,0,4)}):Play() end)
+	FlingButton.MouseButton1Click:Connect(function() SwitchPage("Fling", true) TweenService:Create(NavPill, TweenInfo.new(0.1), {Position=UDim2.new(0,154,0,4)}):Play() end)
+	SkysButton.MouseButton1Click:Connect(function() SwitchPage("Skys", true) TweenService:Create(NavPill, TweenInfo.new(0.1), {Position=UDim2.new(0,230,0,4)}):Play() end)
+	AnimationsButton.MouseButton1Click:Connect(function() SwitchPage("Animations", true) TweenService:Create(NavPill, TweenInfo.new(0.1), {Position=UDim2.new(0,306,0,4)}):Play() end)
 
 	local function LoginSuccess()
 		if unlocked then return end
 		unlocked = true
 		LoginPage.Visible = false
-		local pName = Player and Player.Name or "Player"
-		UserName.Text = "@"..pName
+		UserName.Text = "@"..(Player and Player.Name or "Player")
 		Pages.Visible = true; Bottom.Visible = true
 		if not activeTab then SelectTab(MainScriptTab, MainScriptBtn) end
-		RefreshMostUsed()
 	end
 
 	Enter.MouseButton1Click:Connect(function()
 		if Password.Text == "sam2027" then SaveSession() LoginSuccess() else ErrorText.Text = "Clave incorrecta" end
 	end)
-
 	if HasSession() and isWhitelisted(Player and Player.Name or "") then task.defer(function() LoginSuccess() end) end
 
-	local function MinimizeWindow()
-		TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0,0,0,0)}):Play()
-		-- Opcional: mostrar un botón flotante para reabrir
-	end
-	MinimizeButton.MouseButton1Click:Connect(MinimizeWindow)
-	CloseButton.MouseButton1Click:Connect(function() GUI:Destroy() end)
-
-	-- ==========================================
-	-- MÉTODOS PÚBLICOS Y CONTENEDORES
-	-- ==========================================
 	local WindowElements = {}
-	
 	WindowElements.MainScriptTab = MainScriptTab
 	WindowElements.ExtraTab = ExtraTab
 	WindowElements.FlingPage = FlingPage
 	WindowElements.SkysPage = SkysPage
 	WindowElements.AnimationsPage = AnimationsPage
+	WindowElements.ShowNotif = ShowNotif -- Expuesto para que los scripts puedan enviar notificaciones!
 
-	-- Contenedor especial para Skys (UIListLayout)
 	local SkysContent = Instance.new("Frame")
 	SkysContent.Size = UDim2.new(1,-40,0,0); SkysContent.Position = UDim2.new(0,20,0,44)
 	SkysContent.BackgroundTransparency = 1; SkysContent.AutomaticSize = Enum.AutomaticSize.Y; SkysContent.Parent = SkysPage
@@ -641,22 +486,11 @@ function Library:CreateWindow()
 		end
 		
 		btn.MouseButton1Click:Connect(function()
-			if not active then
-				local canActivate, blocker = CanActivate(text)
-				if not canActivate then ShowNotif("No se puede activar", "Desactiva primero: " .. blocker, 3) return end
-				active = true
-				ToggleUsage[text] = (ToggleUsage[text] or 0) + 1; SaveUsage(ToggleUsage)
-				SetExclusiveActive(text)
-			else
-				active = false
-				ClearExclusiveActive(text)
-			end
+			active = not active
 			setVisual(active)
 			pcall(callback, active)
-			RefreshMostUsed()
 		end)
 		
-		ToggleRegistry[text] = { getActive = function() return active end, setActive = function(v) active = v setVisual(v) pcall(callback, v) end }
 		table.insert(AllToggles, {btn=btn, label=label, text=text, parent=parent})
 		task.defer(function() AddButtonSweep(btn, stroke) end)
 		return btn
