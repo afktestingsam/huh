@@ -1,5 +1,5 @@
 -- ============================================================
--- UI_LIBRARY.LUA (Reemplaza este código en tu GitHub)
+-- UI_LIBRARY.LUA (Subir a GitHub)
 -- ============================================================
 local Library = {}
 
@@ -33,17 +33,7 @@ function Library:CreateWindow()
 	end
 	local function SaveSession() pcall(function() if writefile then writefile("wb_session.txt", tostring(os.time())) end end) end
 
-	local ToggleUsage = {}
-	pcall(function()
-		if readfile then
-			local data = readfile("wb_usage.json")
-			if data then ToggleUsage = HttpService:JSONDecode(data) or {} end
-		end
-	end)
-	local function SaveUsage(tbl) pcall(function() if writefile then writefile("wb_usage.json", HttpService:JSONEncode(tbl)) end end) end
-
 	local AllToggles = {}
-	local ToggleRegistry = {}
 
 	local OldGUI = PlayerGui:FindFirstChild("WelcomeBackUI")
 	if OldGUI then OldGUI:Destroy() end
@@ -447,7 +437,7 @@ function Library:CreateWindow()
 	WindowElements.FlingPage = FlingPage
 	WindowElements.SkysPage = SkysPage
 	WindowElements.AnimationsPage = AnimationsPage
-	WindowElements.ShowNotif = ShowNotif -- Expuesto para que los scripts puedan enviar notificaciones!
+	WindowElements.ShowNotif = ShowNotif 
 
 	local SkysContent = Instance.new("Frame")
 	SkysContent.Size = UDim2.new(1,-40,0,0); SkysContent.Position = UDim2.new(0,20,0,44)
