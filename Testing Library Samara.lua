@@ -1,24 +1,26 @@
 -- ============================================================
--- LIBRARY - Panel GUI
+-- LIBRARY - Panel GUI (compacted)
 -- ============================================================
-local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local HttpService = game:GetService("HttpService")
-local Lighting = game:GetService("Lighting")
-local SoundService = game:GetService("SoundService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Debris = game:GetService("Debris")
-local CoreGui = game:GetService("CoreGui")
 
-local Player = Players.LocalPlayer
-local PlayerGui = Player:WaitForChild("PlayerGui")
-local Workspace = workspace
+-- Servicios (1 local en vez de 15)
+local S = {
+	Players = game:GetService("Players"),
+	Tween = game:GetService("TweenService"),
+	Input = game:GetService("UserInputService"),
+	Run = game:GetService("RunService"),
+	Http = game:GetService("HttpService"),
+	Lighting = game:GetService("Lighting"),
+	Sound = game:GetService("SoundService"),
+	RepStorage = game:GetService("ReplicatedStorage"),
+	Debris = game:GetService("Debris"),
+	CoreGui = game:GetService("CoreGui"),
+}
+S.Player = S.Players.LocalPlayer
+S.PlayerGui = S.Player:WaitForChild("PlayerGui")
+S.Workspace = workspace
 local WHITE = Color3.new(1,1,1)
 
-print("Panel library cargada")
-
+-- Whitelist
 local WHITELIST = {
 	["jerehzxs"]  = "OWNER",
 	["cloudd7qo"] = "TESTER",
@@ -29,8 +31,8 @@ local WHITELIST = {
 local function getRank(n) if not n then return nil end return WHITELIST[n:lower()] end
 local function isWhitelisted(n) if not n then return false end return WHITELIST[n:lower()] ~= nil end
 
-local MatchaFont = nil
-local FontReady = false
+-- Font
+local MatchaFont, FontReady = nil, false
 local function LoadMatchaFont()
 	if not (isfile and writefile and getcustomasset) then return end
 	local ttfFile = "CNP_Matcha.ttf"
@@ -45,7 +47,7 @@ local function LoadMatchaFont()
 	if not ok then return end
 	pcall(function()
 		local asset = getcustomasset(ttfFile)
-		local jsonData = HttpService:JSONEncode({name="Matcha",faces={{name="Regular",weight=400,style="normal",assetId=asset}}})
+		local jsonData = S.Http:JSONEncode({name="Matcha",faces={{name="Regular",weight=400,style="normal",assetId=asset}}})
 		writefile(jsonFile, jsonData)
 		local family = getcustomasset(jsonFile)
 		MatchaFont = Font.new(family, Enum.FontWeight.Regular, Enum.FontStyle.Normal)
@@ -60,79 +62,54 @@ local function ApplyFont(obj)
 	end
 end
 
-local function HasSession()
+-- Storage
+local Storage = {}
+function Storage.HasSession()
 	local ok, c = pcall(function() if readfile then return readfile("wb_session.txt") end end)
 	if not ok or not c then return false end
 	local t = tonumber(c); if not t then return false end
 	return (os.time() - t) < 86400
 end
-local function SaveSession() pcall(function() if writefile then writefile("wb_session.txt", tostring(os.time())) end end) end
-local function LoadUsage()
+function Storage.SaveSession() pcall(function() if writefile then writefile("wb_session.txt", tostring(os.time())) end end) end
+function Storage.LoadUsage()
 	local ok, data = pcall(function() if readfile then return readfile("wb_usage.json") end end)
 	if ok and data then
-		local ok2, tbl = pcall(function() return HttpService:JSONDecode(data) end)
+		local ok2, tbl = pcall(function() return S.Http:JSONDecode(data) end)
 		if ok2 and type(tbl)=="table" then return tbl end
 	end
 	return {}
 end
-local function SaveUsage(tbl) pcall(function() if writefile then writefile("wb_usage.json", HttpService:JSONEncode(tbl)) end end) end
-local function LoadSaveData()
+function Storage.SaveUsage(tbl) pcall(function() if writefile then writefile("wb_usage.json", S.Http:JSONEncode(tbl)) end end) end
+function Storage.LoadSaveData()
 	local ok, data = pcall(function() if readfile then return readfile("wb_save_data.txt") end end)
 	if not ok or not data then return false end
 	return data == "1" or data == "true"
 end
-local function SaveSaveData(val) pcall(function() if writefile then writefile("wb_save_data.txt", val and "1" or "0") end end) end
-local function LoadActiveToggles()
+function Storage.SaveSaveData(val) pcall(function() if writefile then writefile("wb_save_data.txt", val and "1" or "0") end end) end
+function Storage.LoadActiveToggles()
 	local ok, data = pcall(function() if readfile then return readfile("wb_saved_toggles.json") end end)
 	if not ok or not data then return {} end
-	local ok2, tbl = pcall(function() return HttpService:JSONDecode(data) end)
+	local ok2, tbl = pcall(function() return S.Http:JSONDecode(data) end)
 	if not ok2 or type(tbl) ~= "table" then return {} end
 	return tbl
 end
-local function SaveActiveToggles()
-	if not SaveDataEnabled then return end
-	local active = {}
-	for name, reg in pairs(ToggleRegistry) do
-		if reg.getActive() then table.insert(active, name) end
-	end
-	pcall(function() if writefile then writefile("wb_saved_toggles.json", HttpService:JSONEncode(active)) end end)
-end
-local function ClearSavedToggles() pcall(function() if writefile then writefile("wb_saved_toggles.json", "[]") end end) end
-local function LoadNotifRead()
+function Storage.LoadNotifRead()
 	local ok, data = pcall(function() if readfile then return readfile("wb_notif_read.txt") end end)
 	if not ok or not data then return false end
 	return data == "1" or data == "true"
 end
-local function SaveNotifRead() pcall(function() if writefile then writefile("wb_notif_read.txt", "1") end end) end
+function Storage.SaveNotifRead() pcall(function() if writefile then writefile("wb_notif_read.txt", "1") end end) end
 
-local ToggleUsage = LoadUsage()
-local AllToggles = {}
-local ToggleRegistry = {}
-local SaveDataEnabled = LoadSaveData()
+-- Toggle data
+local ToggleUsage = Storage.LoadUsage()
+local AllToggles, ToggleRegistry, ExclusiveGroups = {}, {}, {}
+local SaveDataEnabled = Storage.LoadSaveData()
 
-local OldGUI = PlayerGui:FindFirstChild("WelcomeBackUI")
+-- Delete old GUI
+local OldGUI = S.PlayerGui:FindFirstChild("WelcomeBackUI")
 if OldGUI then OldGUI:Destroy() end
 
-local GUI = Instance.new("ScreenGui")
-GUI.Name = "WelcomeBackUI"
-GUI.ResetOnSpawn = false
-GUI.IgnoreGuiInset = true
-GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-GUI.DisplayOrder = 999
-GUI.Parent = PlayerGui
-
-GUI.DescendantAdded:Connect(function(obj) task.defer(function() if MatchaFont then ApplyFont(obj) end end) end)
-task.spawn(function()
-	while not FontReady do task.wait(0.1) end
-	for _, obj in ipairs(GUI:GetDescendants()) do ApplyFont(obj) end
-end)
-
-local ACCENT = Color3.fromRGB(62,215,98)
-local buttonStyle = "New"
-local activeTab = nil
-local activePill = nil
-
-local ExclusiveGroups = {}
+-- Helper functions
 local function RegisterExclusive(groupId, toggleName)
 	if not ExclusiveGroups[groupId] then ExclusiveGroups[groupId] = { toggles = {}, activeName = nil } end
 	table.insert(ExclusiveGroups[groupId].toggles, toggleName)
@@ -141,9 +118,7 @@ local function CanActivate(toggleName)
 	for _, g in pairs(ExclusiveGroups) do
 		for _, n in ipairs(g.toggles) do
 			if n == toggleName then
-				if g.activeName and g.activeName ~= toggleName then
-					return false, g.activeName
-				end
+				if g.activeName and g.activeName ~= toggleName then return false, g.activeName end
 				return true
 			end
 		end
@@ -163,6 +138,11 @@ local function ClearExclusiveActive(toggleName)
 	end
 end
 
+-- UI table
+local UI = {}
+UI.ACCENT = Color3.fromRGB(62,215,98)
+
+-- ShowNotif
 local function ShowNotif(title, text, dur)
 	dur = dur or 3
 	local n = Instance.new("Frame")
@@ -171,13 +151,13 @@ local function ShowNotif(title, text, dur)
 	n.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
 	n.BorderSizePixel = 0
 	n.ZIndex = 100
-	n.Parent = GUI
+	n.Parent = UI.GUI
 	Instance.new("UICorner", n).CornerRadius = UDim.new(0, 10)
 	local s = Instance.new("UIStroke", n)
-	s.Color = ACCENT; s.Thickness = 1.5
+	s.Color = UI.ACCENT; s.Thickness = 1.5
 	local t = Instance.new("TextLabel")
 	t.Size = UDim2.new(1, -20, 0, 20); t.Position = UDim2.new(0, 10, 0, 6)
-	t.BackgroundTransparency = 1; t.Text = title; t.TextColor3 = ACCENT
+	t.BackgroundTransparency = 1; t.Text = title; t.TextColor3 = UI.ACCENT
 	t.TextSize = 13; t.Font = Enum.Font.GothamBold
 	t.TextXAlignment = Enum.TextXAlignment.Left; t.Parent = n
 	local b = Instance.new("TextLabel")
@@ -186,14 +166,15 @@ local function ShowNotif(title, text, dur)
 	b.TextColor3 = Color3.fromRGB(200, 200, 208); b.TextSize = 11
 	b.Font = Enum.Font.Gotham; b.TextXAlignment = Enum.TextXAlignment.Left
 	b.TextWrapped = true; b.Parent = n
-	TweenService:Create(n, TweenInfo.new(0.3), {Position = UDim2.new(0.5, -150, 0, 20)}):Play()
+	S.Tween:Create(n, TweenInfo.new(0.3), {Position = UDim2.new(0.5, -150, 0, 20)}):Play()
 	task.delay(dur, function()
-		local tw = TweenService:Create(n, TweenInfo.new(0.3), {Position = UDim2.new(0.5, -150, 0, -80)})
+		local tw = S.Tween:Create(n, TweenInfo.new(0.3), {Position = UDim2.new(0.5, -150, 0, -80)})
 		tw:Play()
 		tw.Completed:Connect(function() n:Destroy() end)
 	end)
 end
 
+-- AddButtonSweep
 local function AddButtonSweep(btn, stroke)
 	if not btn or btn:FindFirstChild("SweepHolder") then return end
 	if stroke then
@@ -222,361 +203,587 @@ local function AddButtonSweep(btn, stroke)
 	g.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(0.5,0),NumberSequenceKeypoint.new(1,1)})
 	local sweeping = false
 	btn.MouseEnter:Connect(function()
-		if stroke then TweenService:Create(stroke, TweenInfo.new(0.15), {Transparency = 0.5}):Play() end
+		if stroke then S.Tween:Create(stroke, TweenInfo.new(0.15), {Transparency = 0.5}):Play() end
 		if sweeping then return end
 		sweeping = true
 		sw.Position = UDim2.new(0, -40, 0, 0)
-		local tw = TweenService:Create(sw, TweenInfo.new(0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Position = UDim2.new(1, 0, 0, 0)})
+		local tw = S.Tween:Create(sw, TweenInfo.new(0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Position = UDim2.new(1, 0, 0, 0)})
 		tw:Play()
 		tw.Completed:Connect(function() sweeping = false end)
 	end)
 	btn.MouseLeave:Connect(function()
-		if stroke then TweenService:Create(stroke, TweenInfo.new(0.15), {Transparency = 0.82}):Play() end
+		if stroke then S.Tween:Create(stroke, TweenInfo.new(0.15), {Transparency = 0.82}):Play() end
 	end)
 end
 
-local Main = Instance.new("Frame")
-Main.Name = "Main"
-Main.AnchorPoint = Vector2.new(0.5,0.5)
-Main.Position = UDim2.fromScale(0.5,0.5)
-Main.Size = UDim2.new(0,480,0,300)
-Main.BackgroundColor3 = Color3.fromRGB(10,10,14)
-Main.BorderSizePixel = 0
-Main.ClipsDescendants = true
-Main.Parent = GUI
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0,14)
-local MainStroke = Instance.new("UIStroke", Main)
-MainStroke.Color = Color3.fromRGB(42,42,47)
-MainStroke.Thickness = 1
-MainStroke.Transparency = 0.15
-local UIScale = Instance.new("UIScale")
-UIScale.Scale = 1
-UIScale.Parent = Main
+-- ============================================================
+-- BUILD GUI (dentro de un do block para ahorrar locals)
+-- ============================================================
+UI.GUI = Instance.new("ScreenGui")
+UI.GUI.Name = "WelcomeBackUI"
+UI.GUI.ResetOnSpawn = false
+UI.GUI.IgnoreGuiInset = true
+UI.GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+UI.GUI.DisplayOrder = 999
+UI.GUI.Parent = S.PlayerGui
+UI.GUI.DescendantAdded:Connect(function(obj) task.defer(function() if MatchaFont then ApplyFont(obj) end end) end)
+task.spawn(function()
+	while not FontReady do task.wait(0.1) end
+	for _, obj in ipairs(UI.GUI:GetDescendants()) do ApplyFont(obj) end
+end)
 
-local Top = Instance.new("Frame")
-Top.Name = "Top"
-Top.Size = UDim2.new(1,0,0,46)
-Top.BackgroundTransparency = 1
-Top.Active = true
-Top.Parent = Main
-local TopLine = Instance.new("Frame")
-TopLine.Size = UDim2.new(1,0,0,1)
-TopLine.Position = UDim2.new(0,0,1,-1)
-TopLine.BackgroundColor3 = Color3.fromRGB(43,43,48)
-TopLine.BorderSizePixel = 0
-TopLine.Parent = Top
-
-local function MakeMacButton(color, x)
-	local b = Instance.new("TextButton")
-	b.Size = UDim2.fromOffset(14,14)
-	b.Position = UDim2.new(0,x,0,15)
-	b.BackgroundColor3 = color
-	b.Text = ""
-	b.AutoButtonColor = false
-	b.BorderSizePixel = 0
-	b.Parent = Top
-	Instance.new("UICorner", b).CornerRadius = UDim.new(1,0)
-	local s = Instance.new("UIStroke", b)
-	s.Color = Color3.fromRGB(255,255,255); s.Transparency = 0.72
-	return b
-end
-local CloseButton = MakeMacButton(Color3.fromRGB(245,67,67), 16)
-local MinimizeButton = MakeMacButton(Color3.fromRGB(246,190,45), 38)
-local MaximizeButton = MakeMacButton(Color3.fromRGB(47,195,87), 60)
-
-local function MakeClassicButton(text, x)
-	local b = Instance.new("TextButton")
-	b.Size = UDim2.fromOffset(26,26)
-	b.Position = UDim2.new(1,x,0,10)
-	b.BackgroundColor3 = Color3.fromRGB(24,24,30)
-	b.Text = text
-	b.TextColor3 = Color3.fromRGB(220,220,225)
-	b.TextSize = 14
-	b.Font = Enum.Font.GothamBold
-	b.AutoButtonColor = false
-	b.Visible = false
-	b.Parent = Top
-	Instance.new("UICorner", b).CornerRadius = UDim.new(0,8)
-	local s = Instance.new("UIStroke", b)
-	s.Color = Color3.fromRGB(52,52,60)
-	return b
-end
-local ClassicClose = MakeClassicButton("X", -34)
-local ClassicMin = MakeClassicButton("-", -66)
-
-local TitleGroup = Instance.new("Frame")
-TitleGroup.AnchorPoint = Vector2.new(0.5,0.5)
-TitleGroup.Position = UDim2.new(0.5,0,0,23)
-TitleGroup.Size = UDim2.new(0,140,0,30)
-TitleGroup.BackgroundTransparency = 1
-TitleGroup.Parent = Top
-local TopIcon = Instance.new("ImageLabel")
-TopIcon.Size = UDim2.fromOffset(28,28)
-TopIcon.Position = UDim2.new(0,0,0.5,-14)
-TopIcon.BackgroundTransparency = 1
-TopIcon.Image = "rbxassetid://119972597178070"
-TopIcon.Parent = TitleGroup
-local TopTitle = Instance.new("TextLabel")
-TopTitle.Size = UDim2.new(1,-34,1,0)
-TopTitle.Position = UDim2.new(0,34,0,0)
-TopTitle.BackgroundTransparency = 1
-TopTitle.Text = "Panel"
-TopTitle.TextXAlignment = Enum.TextXAlignment.Left
-TopTitle.TextColor3 = Color3.fromRGB(225,225,232)
-TopTitle.TextSize = 16
-TopTitle.Font = Enum.Font.GothamBold
-TopTitle.Parent = TitleGroup
-
-local Notification = Instance.new("TextButton")
-Notification.Size = UDim2.fromOffset(30,30)
-Notification.Position = UDim2.new(1,-46,0,9)
-Notification.BackgroundColor3 = Color3.fromRGB(24,24,30)
-Notification.Text = ""
-Notification.AutoButtonColor = false
-Notification.Parent = Top
-Instance.new("UICorner", Notification).CornerRadius = UDim.new(1,0)
-local NS = Instance.new("UIStroke", Notification)
-NS.Color = Color3.fromRGB(52,52,60)
-local NotifIcon = Instance.new("ImageLabel")
-NotifIcon.Size = UDim2.new(1,-12,1,-12)
-NotifIcon.Position = UDim2.new(0,6,0,6)
-NotifIcon.BackgroundTransparency = 1
-NotifIcon.Image = "rbxassetid://133824150122272"
-NotifIcon.Parent = Notification
-local NotificationDot = Instance.new("Frame")
-NotificationDot.Size = UDim2.fromOffset(14,14)
-NotificationDot.Position = UDim2.new(1,-9,0,-3)
-NotificationDot.BackgroundColor3 = Color3.fromRGB(255,60,60)
-NotificationDot.BorderSizePixel = 0
-NotificationDot.ZIndex = 5
-NotificationDot.Parent = Notification
-Instance.new("UICorner", NotificationDot).CornerRadius = UDim.new(1,0)
-local NDS = Instance.new("UIStroke", NotificationDot)
-NDS.Color = Color3.fromRGB(10,10,14); NDS.Thickness = 2
-local NotifBadge = Instance.new("TextLabel")
-NotifBadge.Size = UDim2.new(1,0,1,0)
-NotifBadge.BackgroundTransparency = 1
-NotifBadge.Text = "1"
-NotifBadge.TextColor3 = Color3.fromRGB(255,255,255)
-NotifBadge.TextSize = 9
-NotifBadge.Font = Enum.Font.GothamBold
-NotifBadge.ZIndex = 6
-NotifBadge.Parent = NotificationDot
-
-local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1,0,1,-46)
-Content.Position = UDim2.new(0,0,0,46)
-Content.BackgroundTransparency = 1
-Content.ClipsDescendants = true
-Content.Parent = Main
-
-local LoginPage = Instance.new("ScrollingFrame")
-LoginPage.Name = "Login"
-LoginPage.Size = UDim2.new(1,0,1,0)
-LoginPage.BackgroundTransparency = 1
-LoginPage.BorderSizePixel = 0
-LoginPage.ScrollingDirection = Enum.ScrollingDirection.Y
-LoginPage.ScrollingEnabled = true
-LoginPage.Active = true
-LoginPage.ScrollBarThickness = 3
-LoginPage.ScrollBarImageTransparency = 0.4
-LoginPage.CanvasSize = UDim2.new(0,0,0,320)
-LoginPage.Parent = Content
-
-local Profile = Instance.new("ImageLabel")
-Profile.Size = UDim2.fromOffset(80,80)
-Profile.Position = UDim2.new(0.5,-40,0,10)
-Profile.BackgroundColor3 = Color3.fromRGB(15,35,21)
-Profile.ScaleType = Enum.ScaleType.Crop
-Profile.Parent = LoginPage
-Instance.new("UICorner", Profile).CornerRadius = UDim.new(1,0)
-local ProfileStroke = Instance.new("UIStroke", Profile)
-ProfileStroke.Color = ACCENT; ProfileStroke.Thickness = 3
-
-local Welcome = Instance.new("TextLabel")
-Welcome.Size = UDim2.fromOffset(460,32)
-Welcome.Position = UDim2.new(0.5,-230,0,98)
-Welcome.BackgroundTransparency = 1
-Welcome.Text = "Welcome Back"
-Welcome.TextColor3 = Color3.fromRGB(245,245,247)
-Welcome.TextSize = 24
-Welcome.Font = Enum.Font.GothamBold
-Welcome.Parent = LoginPage
-local Subtitle = Instance.new("TextLabel")
-Subtitle.Size = UDim2.fromOffset(460,18)
-Subtitle.Position = UDim2.new(0.5,-230,0,130)
-Subtitle.BackgroundTransparency = 1
-Subtitle.Text = "Enter the password"
-Subtitle.TextColor3 = Color3.fromRGB(125,125,130)
-Subtitle.TextSize = 12
-Subtitle.Font = Enum.Font.Gotham
-Subtitle.Parent = LoginPage
-
-local Password = Instance.new("TextBox")
-Password.Size = UDim2.fromOffset(280,38)
-Password.Position = UDim2.new(0.5,-140,0,158)
-Password.BackgroundColor3 = Color3.fromRGB(17,17,21)
-Password.Text = ""
-Password.PlaceholderText = "Password"
-Password.PlaceholderColor3 = Color3.fromRGB(105,105,112)
-Password.TextColor3 = Color3.fromRGB(240,240,240)
-Password.TextSize = 14
-Password.Font = Enum.Font.Gotham
-Password.ClearTextOnFocus = false
-Password.TextXAlignment = Enum.TextXAlignment.Center
-Password.TextStrokeTransparency = 1
-Password.Parent = LoginPage
-Instance.new("UICorner", Password).CornerRadius = UDim.new(0,19)
-local PassStroke = Instance.new("UIStroke", Password)
-PassStroke.Color = ACCENT; PassStroke.Thickness = 1.5
-
-local Enter = Instance.new("TextButton")
-Enter.Size = UDim2.fromOffset(280,38)
-Enter.Position = UDim2.new(0.5,-140,0,206)
-Enter.BackgroundColor3 = Color3.fromRGB(16,16,20)
-Enter.Text = "Enter"
-Enter.TextColor3 = Color3.fromRGB(235,235,238)
-Enter.TextSize = 15
-Enter.Font = Enum.Font.GothamBold
-Enter.AutoButtonColor = false
-Enter.Parent = LoginPage
-Instance.new("UICorner", Enter).CornerRadius = UDim.new(0,19)
-local EnterStroke = Instance.new("UIStroke", Enter)
-EnterStroke.Color = ACCENT; EnterStroke.Thickness = 1.5
-
-local Error = Instance.new("TextLabel")
-Error.Size = UDim2.fromOffset(400,18)
-Error.Position = UDim2.new(0.5,-200,0,252)
-Error.BackgroundTransparency = 1
-Error.Text = ""
-Error.TextColor3 = Color3.fromRGB(255,80,80)
-Error.TextSize = 12
-Error.Font = Enum.Font.Gotham
-Error.Parent = LoginPage
-
-local Pages = Instance.new("Frame")
-Pages.Size = UDim2.new(1,0,1,-62)
-Pages.BackgroundTransparency = 1
-Pages.ClipsDescendants = true
-Pages.Visible = false
-Pages.Parent = Content
-
-local function MakePage(name, canvas)
-	local p = Instance.new("ScrollingFrame")
-	p.Name = name
-	p.Size = UDim2.new(1,0,1,0)
-	p.BackgroundTransparency = 1
-	p.BorderSizePixel = 0
-	p.ScrollingDirection = Enum.ScrollingDirection.Y
-	p.ScrollingEnabled = true
-	p.Active = true
-	p.ScrollBarThickness = 3
-	p.ScrollBarImageTransparency = 0.4
-	p.CanvasSize = UDim2.new(0,0,0,canvas)
-	p.Visible = false
-	p.Parent = Pages
-	return p
+do
+	UI.Main = Instance.new("Frame")
+	UI.Main.Name = "Main"
+	UI.Main.AnchorPoint = Vector2.new(0.5,0.5)
+	UI.Main.Position = UDim2.fromScale(0.5,0.5)
+	UI.Main.Size = UDim2.new(0,480,0,300)
+	UI.Main.BackgroundColor3 = Color3.fromRGB(10,10,14)
+	UI.Main.BorderSizePixel = 0
+	UI.Main.ClipsDescendants = true
+	UI.Main.Parent = UI.GUI
+	Instance.new("UICorner", UI.Main).CornerRadius = UDim.new(0,14)
+	local ms = Instance.new("UIStroke", UI.Main)
+	ms.Color = Color3.fromRGB(42,42,47); ms.Thickness = 1; ms.Transparency = 0.15
+	UI.UIScale = Instance.new("UIScale")
+	UI.UIScale.Scale = 1
+	UI.UIScale.Parent = UI.Main
 end
 
-local HomePage = MakePage("Home", 400)
-local ScriptsPage = MakePage("Scripts", 300)
-local FlingPage = MakePage("Fling", 400)
-local SkysPage = MakePage("Skys", 2000)
-local AnimationsPage = MakePage("Animations", 800)
-local SettingsPage = MakePage("Settings", 400)
-HomePage.Visible = true
+do
+	UI.Top = Instance.new("Frame")
+	UI.Top.Name = "Top"
+	UI.Top.Size = UDim2.new(1,0,0,46)
+	UI.Top.BackgroundTransparency = 1
+	UI.Top.Active = true
+	UI.Top.Parent = UI.Main
+	local tl = Instance.new("Frame")
+	tl.Size = UDim2.new(1,0,0,1); tl.Position = UDim2.new(0,0,1,-1)
+	tl.BackgroundColor3 = Color3.fromRGB(43,43,48); tl.BorderSizePixel = 0; tl.Parent = UI.Top
 
-for _, pg in ipairs({ScriptsPage, FlingPage, SkysPage, AnimationsPage, SettingsPage}) do
-	pcall(function()
-		pg.AutomaticCanvasSize = Enum.AutomaticSize.Y
-		pg.CanvasSize = UDim2.new(0,0,0,0)
-	end)
+	local function MakeMacButton(color, x)
+		local b = Instance.new("TextButton")
+		b.Size = UDim2.fromOffset(14,14); b.Position = UDim2.new(0,x,0,15)
+		b.BackgroundColor3 = color; b.Text = ""; b.AutoButtonColor = false; b.BorderSizePixel = 0
+		b.Parent = UI.Top
+		Instance.new("UICorner", b).CornerRadius = UDim.new(1,0)
+		local s = Instance.new("UIStroke", b)
+		s.Color = Color3.fromRGB(255,255,255); s.Transparency = 0.72
+		return b
+	end
+	UI.CloseBtn = MakeMacButton(Color3.fromRGB(245,67,67), 16)
+	UI.MinBtn = MakeMacButton(Color3.fromRGB(246,190,45), 38)
+	UI.MaxBtn = MakeMacButton(Color3.fromRGB(47,195,87), 60)
+
+	local function MakeClassicButton(text, x)
+		local b = Instance.new("TextButton")
+		b.Size = UDim2.fromOffset(26,26); b.Position = UDim2.new(1,x,0,10)
+		b.BackgroundColor3 = Color3.fromRGB(24,24,30); b.Text = text
+		b.TextColor3 = Color3.fromRGB(220,220,225); b.TextSize = 14
+		b.Font = Enum.Font.GothamBold; b.AutoButtonColor = false; b.Visible = false
+		b.Parent = UI.Top
+		Instance.new("UICorner", b).CornerRadius = UDim.new(0,8)
+		local s = Instance.new("UIStroke", b); s.Color = Color3.fromRGB(52,52,60)
+		return b
+	end
+	UI.ClassicClose = MakeClassicButton("X", -34)
+	UI.ClassicMin = MakeClassicButton("-", -66)
+
+	local tg = Instance.new("Frame")
+	tg.AnchorPoint = Vector2.new(0.5,0.5); tg.Position = UDim2.new(0.5,0,0,23)
+	tg.Size = UDim2.new(0,140,0,30); tg.BackgroundTransparency = 1; tg.Parent = UI.Top
+	local ti = Instance.new("ImageLabel")
+	ti.Size = UDim2.fromOffset(28,28); ti.Position = UDim2.new(0,0,0.5,-14)
+	ti.BackgroundTransparency = 1; ti.Image = "rbxassetid://119972597178070"; ti.Parent = tg
+	local tt = Instance.new("TextLabel")
+	tt.Size = UDim2.new(1,-34,1,0); tt.Position = UDim2.new(0,34,0,0)
+	tt.BackgroundTransparency = 1; tt.Text = "Panel"; tt.TextXAlignment = Enum.TextXAlignment.Left
+	tt.TextColor3 = Color3.fromRGB(225,225,232); tt.TextSize = 16
+	tt.Font = Enum.Font.GothamBold; tt.Parent = tg
+
+	UI.NotifBtn = Instance.new("TextButton")
+	UI.NotifBtn.Size = UDim2.fromOffset(30,30); UI.NotifBtn.Position = UDim2.new(1,-46,0,9)
+	UI.NotifBtn.BackgroundColor3 = Color3.fromRGB(24,24,30); UI.NotifBtn.Text = ""
+	UI.NotifBtn.AutoButtonColor = false; UI.NotifBtn.Parent = UI.Top
+	Instance.new("UICorner", UI.NotifBtn).CornerRadius = UDim.new(1,0)
+	local ns = Instance.new("UIStroke", UI.NotifBtn); ns.Color = Color3.fromRGB(52,52,60)
+	local ni = Instance.new("ImageLabel")
+	ni.Size = UDim2.new(1,-12,1,-12); ni.Position = UDim2.new(0,6,0,6)
+	ni.BackgroundTransparency = 1; ni.Image = "rbxassetid://133824150122272"; ni.Parent = UI.NotifBtn
+	UI.NotifDot = Instance.new("Frame")
+	UI.NotifDot.Size = UDim2.fromOffset(14,14); UI.NotifDot.Position = UDim2.new(1,-9,0,-3)
+	UI.NotifDot.BackgroundColor3 = Color3.fromRGB(255,60,60); UI.NotifDot.BorderSizePixel = 0
+	UI.NotifDot.ZIndex = 5; UI.NotifDot.Parent = UI.NotifBtn
+	Instance.new("UICorner", UI.NotifDot).CornerRadius = UDim.new(1,0)
+	local nds = Instance.new("UIStroke", UI.NotifDot)
+	nds.Color = Color3.fromRGB(10,10,14); nds.Thickness = 2
+	local nb = Instance.new("TextLabel")
+	nb.Size = UDim2.new(1,0,1,0); nb.BackgroundTransparency = 1; nb.Text = "1"
+	nb.TextColor3 = Color3.fromRGB(255,255,255); nb.TextSize = 9
+	nb.Font = Enum.Font.GothamBold; nb.ZIndex = 6; nb.Parent = UI.NotifDot
 end
 
-local BigProfile = Instance.new("ImageLabel")
-BigProfile.Size = UDim2.fromOffset(70,70)
-BigProfile.Position = UDim2.new(0,20,0,16)
-BigProfile.BackgroundColor3 = Color3.fromRGB(15,15,18)
-BigProfile.ScaleType = Enum.ScaleType.Crop
-BigProfile.Parent = HomePage
-Instance.new("UICorner", BigProfile).CornerRadius = UDim.new(1,0)
-local BigStroke = Instance.new("UIStroke", BigProfile)
-BigStroke.Color = ACCENT; BigStroke.Thickness = 3
+do
+	UI.Content = Instance.new("Frame")
+	UI.Content.Size = UDim2.new(1,0,1,-46); UI.Content.Position = UDim2.new(0,0,0,46)
+	UI.Content.BackgroundTransparency = 1; UI.Content.ClipsDescendants = true
+	UI.Content.Parent = UI.Main
+end
 
-local OnlineDot = Instance.new("Frame")
-OnlineDot.Size = UDim2.fromOffset(22,22)
-OnlineDot.Position = UDim2.new(1,-16,1,-16)
-OnlineDot.BackgroundColor3 = ACCENT
-OnlineDot.BorderSizePixel = 0
-OnlineDot.ZIndex = 5
-OnlineDot.Parent = BigProfile
-Instance.new("UICorner", OnlineDot).CornerRadius = UDim.new(1,0)
-local OS = Instance.new("UIStroke", OnlineDot)
-OS.Color = Color3.fromRGB(10,10,14); OS.Thickness = 3
+do
+	-- Login page
+	UI.Login = {}
+	UI.Login.Page = Instance.new("ScrollingFrame")
+	UI.Login.Page.Name = "Login"
+	UI.Login.Page.Size = UDim2.new(1,0,1,0)
+	UI.Login.Page.BackgroundTransparency = 1; UI.Login.Page.BorderSizePixel = 0
+	UI.Login.Page.ScrollingDirection = Enum.ScrollingDirection.Y
+	UI.Login.Page.ScrollingEnabled = true; UI.Login.Page.Active = true
+	UI.Login.Page.ScrollBarThickness = 3; UI.Login.Page.ScrollBarImageTransparency = 0.4
+	UI.Login.Page.CanvasSize = UDim2.new(0,0,0,320)
+	UI.Login.Page.Parent = UI.Content
 
-local UserName = Instance.new("TextLabel")
-UserName.Size = UDim2.new(1,-110,0,28)
-UserName.Position = UDim2.new(0,100,0,18)
-UserName.BackgroundTransparency = 1
-UserName.Text = ""
-UserName.TextXAlignment = Enum.TextXAlignment.Left
-UserName.TextTruncate = Enum.TextTruncate.AtEnd
-UserName.TextColor3 = Color3.fromRGB(245,245,247)
-UserName.TextSize = 19
-UserName.Font = Enum.Font.GothamBold
-UserName.Parent = HomePage
+	local p = Instance.new("ImageLabel")
+	p.Size = UDim2.fromOffset(80,80); p.Position = UDim2.new(0.5,-40,0,10)
+	p.BackgroundColor3 = Color3.fromRGB(15,35,21); p.ScaleType = Enum.ScaleType.Crop
+	p.Parent = UI.Login.Page
+	Instance.new("UICorner", p).CornerRadius = UDim.new(1,0)
+	local ps = Instance.new("UIStroke", p); ps.Color = UI.ACCENT; ps.Thickness = 3
+	UI.Login.Profile = p; UI.Login.ProfileStroke = ps
 
-local Status = Instance.new("TextLabel")
-Status.Size = UDim2.new(1,-110,0,18)
-Status.Position = UDim2.new(0,100,0,46)
-Status.BackgroundTransparency = 1
-Status.Text = "Online"
-Status.TextXAlignment = Enum.TextXAlignment.Left
-Status.TextColor3 = ACCENT
-Status.TextSize = 12
-Status.Font = Enum.Font.Gotham
-Status.Parent = HomePage
+	local w = Instance.new("TextLabel")
+	w.Size = UDim2.fromOffset(460,32); w.Position = UDim2.new(0.5,-230,0,98)
+	w.BackgroundTransparency = 1; w.Text = "Welcome Back"
+	w.TextColor3 = Color3.fromRGB(245,245,247); w.TextSize = 24
+	w.Font = Enum.Font.GothamBold; w.Parent = UI.Login.Page
+	UI.Login.Welcome = w
 
-local Rank = Instance.new("TextLabel")
-Rank.Size = UDim2.new(1,-110,0,18)
-Rank.Position = UDim2.new(0,100,0,64)
-Rank.BackgroundTransparency = 1
-Rank.Text = ""
-Rank.TextXAlignment = Enum.TextXAlignment.Left
-Rank.TextSize = 12
-Rank.Font = Enum.Font.GothamBold
-Rank.Visible = false
-Rank.Parent = HomePage
+	local sub = Instance.new("TextLabel")
+	sub.Size = UDim2.fromOffset(460,18); sub.Position = UDim2.new(0.5,-230,0,130)
+	sub.BackgroundTransparency = 1; sub.Text = "Enter the password"
+	sub.TextColor3 = Color3.fromRGB(125,125,130); sub.TextSize = 12
+	sub.Font = Enum.Font.Gotham; sub.Parent = UI.Login.Page
+	UI.Login.Subtitle = sub
 
-local MostUsedTitle = Instance.new("TextLabel")
-MostUsedTitle.Size = UDim2.new(1,-70,0,20)
-MostUsedTitle.Position = UDim2.new(0,20,0,100)
-MostUsedTitle.BackgroundTransparency = 1
-MostUsedTitle.Text = "Most Used Scripts"
-MostUsedTitle.TextXAlignment = Enum.TextXAlignment.Left
-MostUsedTitle.TextColor3 = Color3.fromRGB(245,245,247)
-MostUsedTitle.TextSize = 14
-MostUsedTitle.Font = Enum.Font.GothamBold
-MostUsedTitle.Parent = HomePage
-local MostUsedSearchIcon = Instance.new("ImageLabel")
-MostUsedSearchIcon.Size = UDim2.fromOffset(14,14)
-MostUsedSearchIcon.Position = UDim2.new(1,-34,0,103)
-MostUsedSearchIcon.BackgroundTransparency = 1
-MostUsedSearchIcon.Image = "rbxassetid://6031091004"
-MostUsedSearchIcon.ImageColor3 = Color3.fromRGB(150,150,158)
-MostUsedSearchIcon.Parent = HomePage
+	local pw = Instance.new("TextBox")
+	pw.Size = UDim2.fromOffset(280,38); pw.Position = UDim2.new(0.5,-140,0,158)
+	pw.BackgroundColor3 = Color3.fromRGB(17,17,21); pw.Text = ""
+	pw.PlaceholderText = "Password"; pw.PlaceholderColor3 = Color3.fromRGB(105,105,112)
+	pw.TextColor3 = Color3.fromRGB(240,240,240); pw.TextSize = 14
+	pw.Font = Enum.Font.Gotham; pw.ClearTextOnFocus = false
+	pw.TextXAlignment = Enum.TextXAlignment.Center; pw.TextStrokeTransparency = 1
+	pw.Parent = UI.Login.Page
+	Instance.new("UICorner", pw).CornerRadius = UDim.new(0,19)
+	local pws = Instance.new("UIStroke", pw); pws.Color = UI.ACCENT; pws.Thickness = 1.5
+	UI.Login.Password = pw; UI.Login.PassStroke = pws
 
-local MostUsedList = Instance.new("Frame")
-MostUsedList.Size = UDim2.new(1,-40,0,0)
-MostUsedList.Position = UDim2.new(0,20,0,128)
-MostUsedList.BackgroundTransparency = 1
-MostUsedList.AutomaticSize = Enum.AutomaticSize.Y
-MostUsedList.Parent = HomePage
-local mul = Instance.new("UIListLayout", MostUsedList)
-mul.Padding = UDim.new(0,4)
-mul.SortOrder = Enum.SortOrder.LayoutOrder
+	local e = Instance.new("TextButton")
+	e.Size = UDim2.fromOffset(280,38); e.Position = UDim2.new(0.5,-140,0,206)
+	e.BackgroundColor3 = Color3.fromRGB(16,16,20); e.Text = "Enter"
+	e.TextColor3 = Color3.fromRGB(235,235,238); e.TextSize = 15
+	e.Font = Enum.Font.GothamBold; e.AutoButtonColor = false
+	e.Parent = UI.Login.Page
+	Instance.new("UICorner", e).CornerRadius = UDim.new(0,19)
+	local es = Instance.new("UIStroke", e); es.Color = UI.ACCENT; es.Thickness = 1.5
+	UI.Login.Enter = e; UI.Login.EnterStroke = es
 
+	local err = Instance.new("TextLabel")
+	err.Size = UDim2.fromOffset(400,18); err.Position = UDim2.new(0.5,-200,0,252)
+	err.BackgroundTransparency = 1; err.Text = ""
+	err.TextColor3 = Color3.fromRGB(255,80,80); err.TextSize = 12
+	err.Font = Enum.Font.Gotham; err.Parent = UI.Login.Page
+	UI.Login.Error = err
+end
+
+do
+	-- Pages
+	UI.Pages = {}
+	UI.Pages.Container = Instance.new("Frame")
+	UI.Pages.Container.Size = UDim2.new(1,0,1,-62)
+	UI.Pages.Container.BackgroundTransparency = 1
+	UI.Pages.Container.ClipsDescendants = true
+	UI.Pages.Container.Visible = false
+	UI.Pages.Container.Parent = UI.Content
+
+	local function MakePage(name, canvas)
+		local pg = Instance.new("ScrollingFrame")
+		pg.Name = name; pg.Size = UDim2.new(1,0,1,0)
+		pg.BackgroundTransparency = 1; pg.BorderSizePixel = 0
+		pg.ScrollingDirection = Enum.ScrollingDirection.Y
+		pg.ScrollingEnabled = true; pg.Active = true
+		pg.ScrollBarThickness = 3; pg.ScrollBarImageTransparency = 0.4
+		pg.CanvasSize = UDim2.new(0,0,0,canvas); pg.Visible = false
+		pg.Parent = UI.Pages.Container
+		return pg
+	end
+
+	UI.Pages.Home = MakePage("Home", 400)
+	UI.Pages.Scripts = MakePage("Scripts", 300)
+	UI.Pages.Fling = MakePage("Fling", 400)
+	UI.Pages.Skys = MakePage("Skys", 2000)
+	UI.Pages.Animations = MakePage("Animations", 800)
+	UI.Pages.Settings = MakePage("Settings", 400)
+	UI.Pages.Home.Visible = true
+
+	for _, pg in ipairs({UI.Pages.Scripts, UI.Pages.Fling, UI.Pages.Skys, UI.Pages.Animations, UI.Pages.Settings}) do
+		pcall(function()
+			pg.AutomaticCanvasSize = Enum.AutomaticSize.Y
+			pg.CanvasSize = UDim2.new(0,0,0,0)
+		end)
+	end
+end
+
+do
+	-- Home content
+	local hp = UI.Pages.Home
+	local bp = Instance.new("ImageLabel")
+	bp.Size = UDim2.fromOffset(70,70); bp.Position = UDim2.new(0,20,0,16)
+	bp.BackgroundColor3 = Color3.fromRGB(15,15,18); bp.ScaleType = Enum.ScaleType.Crop
+	bp.Parent = hp
+	Instance.new("UICorner", bp).CornerRadius = UDim.new(1,0)
+	local bps = Instance.new("UIStroke", bp); bps.Color = UI.ACCENT; bps.Thickness = 3
+	UI.Home_BigProfile = bp
+
+	local od = Instance.new("Frame")
+	od.Size = UDim2.fromOffset(22,22); od.Position = UDim2.new(1,-16,1,-16)
+	od.BackgroundColor3 = UI.ACCENT; od.BorderSizePixel = 0; od.ZIndex = 5; od.Parent = bp
+	Instance.new("UICorner", od).CornerRadius = UDim.new(1,0)
+	local ods = Instance.new("UIStroke", od); ods.Color = Color3.fromRGB(10,10,14); ods.Thickness = 3
+
+	local un = Instance.new("TextLabel")
+	un.Size = UDim2.new(1,-110,0,28); un.Position = UDim2.new(0,100,0,18)
+	un.BackgroundTransparency = 1; un.Text = ""
+	un.TextXAlignment = Enum.TextXAlignment.Left; un.TextTruncate = Enum.TextTruncate.AtEnd
+	un.TextColor3 = Color3.fromRGB(245,245,247); un.TextSize = 19
+	un.Font = Enum.Font.GothamBold; un.Parent = hp
+	UI.Home_UserName = un
+
+	local st = Instance.new("TextLabel")
+	st.Size = UDim2.new(1,-110,0,18); st.Position = UDim2.new(0,100,0,46)
+	st.BackgroundTransparency = 1; st.Text = "Online"
+	st.TextXAlignment = Enum.TextXAlignment.Left; st.TextColor3 = UI.ACCENT
+	st.TextSize = 12; st.Font = Enum.Font.Gotham; st.Parent = hp
+	UI.Home_Status = st
+
+	local rk = Instance.new("TextLabel")
+	rk.Size = UDim2.new(1,-110,0,18); rk.Position = UDim2.new(0,100,0,64)
+	rk.BackgroundTransparency = 1; rk.Text = ""
+	rk.TextXAlignment = Enum.TextXAlignment.Left; rk.TextSize = 12
+	rk.Font = Enum.Font.GothamBold; rk.Visible = false; rk.Parent = hp
+	UI.Home_Rank = rk
+
+	local mut = Instance.new("TextLabel")
+	mut.Size = UDim2.new(1,-70,0,20); mut.Position = UDim2.new(0,20,0,100)
+	mut.BackgroundTransparency = 1; mut.Text = "Most Used Scripts"
+	mut.TextXAlignment = Enum.TextXAlignment.Left; mut.TextColor3 = Color3.fromRGB(245,245,247)
+	mut.TextSize = 14; mut.Font = Enum.Font.GothamBold; mut.Parent = hp
+	local mus = Instance.new("ImageLabel")
+	mus.Size = UDim2.fromOffset(14,14); mus.Position = UDim2.new(1,-34,0,103)
+	mus.BackgroundTransparency = 1; mus.Image = "rbxassetid://6031091004"
+	mus.ImageColor3 = Color3.fromRGB(150,150,158); mus.Parent = hp
+
+	local mul = Instance.new("Frame")
+	mul.Size = UDim2.new(1,-40,0,0); mul.Position = UDim2.new(0,20,0,128)
+	mul.BackgroundTransparency = 1; mul.AutomaticSize = Enum.AutomaticSize.Y; mul.Parent = hp
+	UI.Home_MostUsedList = mul
+	local mulLayout = Instance.new("UIListLayout", mul)
+	mulLayout.Padding = UDim.new(0,4); mulLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	UI.Home_MostUsedLayout = mulLayout
+end
+
+do
+	-- Scripts page
+	local sp = UI.Pages.Scripts
+	local st = Instance.new("TextLabel")
+	st.Size = UDim2.new(1,-40,0,26); st.Position = UDim2.new(0,20,0,12)
+	st.BackgroundTransparency = 1; st.Text = "Scripts"
+	st.TextXAlignment = Enum.TextXAlignment.Left; st.TextColor3 = Color3.fromRGB(245,245,247)
+	st.TextSize = 20; st.Font = Enum.Font.GothamBold; st.Parent = sp
+
+	local ss = Instance.new("TextBox")
+	ss.Size = UDim2.new(1,-40,0,32); ss.Position = UDim2.new(0,20,0,44)
+	ss.BackgroundColor3 = Color3.fromRGB(18,18,23)
+	ss.PlaceholderText = "Search scripts..."; ss.PlaceholderColor3 = Color3.fromRGB(105,105,112)
+	ss.Text = ""; ss.TextColor3 = Color3.fromRGB(240,240,240); ss.TextSize = 12
+	ss.Font = Enum.Font.Gotham; ss.TextXAlignment = Enum.TextXAlignment.Left
+	ss.ClearTextOnFocus = false; ss.TextStrokeTransparency = 1; ss.Parent = sp
+	Instance.new("UICorner", ss).CornerRadius = UDim.new(0,10)
+	local sss = Instance.new("UIStroke", ss); sss.Color = Color3.fromRGB(52,52,60)
+	local ssp = Instance.new("UIPadding", ss); ssp.PaddingLeft = UDim.new(0,32)
+	local ssi = Instance.new("ImageLabel")
+	ssi.Size = UDim2.fromOffset(14,14); ssi.Position = UDim2.new(0,10,0.5,-7)
+	ssi.BackgroundTransparency = 1; ssi.Image = "rbxassetid://6031091004"
+	ssi.ImageColor3 = Color3.fromRGB(150,150,158); ssi.ZIndex = 3; ssi.Parent = ss
+	UI.Scripts_Search = ss
+
+	local sr = Instance.new("Frame")
+	sr.Size = UDim2.new(1,-40,0,36); sr.Position = UDim2.new(0,20,0,84)
+	sr.BackgroundTransparency = 1; sr.Parent = sp
+	local srl = Instance.new("UIListLayout", sr)
+	srl.FillDirection = Enum.FillDirection.Horizontal; srl.Padding = UDim.new(0,6)
+	UI.Scripts_Row = sr
+
+	local sc = Instance.new("Frame")
+	sc.Size = UDim2.new(1,-40,0,0); sc.Position = UDim2.new(0,20,0,130)
+	sc.BackgroundTransparency = 1; sc.AutomaticSize = Enum.AutomaticSize.Y; sc.Parent = sp
+	UI.Scripts_Content = sc
+
+	local function MakeTabContent(name)
+		local f = Instance.new("Frame")
+		f.Name = name; f.Size = UDim2.new(1,0,0,0)
+		f.AutomaticSize = Enum.AutomaticSize.Y; f.BackgroundTransparency = 1
+		f.Visible = false; f.Parent = sc
+		local lay = Instance.new("UIListLayout", f)
+		lay.Padding = UDim.new(0,6); lay.SortOrder = Enum.SortOrder.LayoutOrder
+		local pad = Instance.new("UIPadding", f)
+		pad.PaddingTop = UDim.new(0,2); pad.PaddingBottom = UDim.new(0,2)
+		return f
+	end
+	UI.Tabs = {}
+	UI.Tabs.MainScript = MakeTabContent("MainScript")
+	UI.Tabs.Extra = MakeTabContent("Extra")
+end
+
+-- Resto de UI: Fling, Skys, Settings titles
+do
+	local ft = Instance.new("TextLabel")
+	ft.Size = UDim2.new(1,-40,0,26); ft.Position = UDim2.new(0,20,0,12)
+	ft.BackgroundTransparency = 1; ft.Text = "Fling Players"
+	ft.TextXAlignment = Enum.TextXAlignment.Left; ft.TextColor3 = Color3.fromRGB(245,245,247)
+	ft.TextSize = 20; ft.Font = Enum.Font.GothamBold; ft.Parent = UI.Pages.Fling
+
+	local skt = Instance.new("TextLabel")
+	skt.Size = UDim2.new(1,-40,0,26); skt.Position = UDim2.new(0,20,0,12)
+	skt.BackgroundTransparency = 1; skt.Text = "Skys"
+	skt.TextXAlignment = Enum.TextXAlignment.Left; skt.TextColor3 = Color3.fromRGB(245,245,247)
+	skt.TextSize = 20; skt.Font = Enum.Font.GothamBold; skt.Parent = UI.Pages.Skys
+
+	local sett = Instance.new("TextLabel")
+	sett.Size = UDim2.new(1,-40,0,26); sett.Position = UDim2.new(0,20,0,12)
+	sett.BackgroundTransparency = 1; sett.Text = "Settings"
+	sett.TextXAlignment = Enum.TextXAlignment.Left; sett.TextColor3 = Color3.fromRGB(245,245,247)
+	sett.TextSize = 20; sett.Font = Enum.Font.GothamBold; sett.Parent = UI.Pages.Settings
+
+	local sl = Instance.new("TextLabel")
+	sl.Size = UDim2.new(1,-40,0,16); sl.Position = UDim2.new(0,20,0,46)
+	sl.BackgroundTransparency = 1; sl.Text = "Estilo de botones"
+	sl.TextXAlignment = Enum.TextXAlignment.Left; sl.TextColor3 = Color3.fromRGB(180,180,188)
+	sl.TextSize = 11; sl.Font = Enum.Font.Gotham; sl.Parent = UI.Pages.Settings
+
+	local str = Instance.new("Frame")
+	str.Size = UDim2.new(1,-40,0,40); str.Position = UDim2.new(0,20,0,66)
+	str.BackgroundColor3 = Color3.fromRGB(18,18,23); str.BorderSizePixel = 0; str.Parent = UI.Pages.Settings
+	Instance.new("UICorner", str).CornerRadius = UDim.new(0,12)
+	local strs = Instance.new("UIStroke", str); strs.Color = Color3.fromRGB(50,50,58)
+
+	local function MakeStyleOption(text, x)
+		local b = Instance.new("TextButton")
+		b.Size = UDim2.new(0.5,-8,1,-10); b.Position = UDim2.new(x,4,0,5)
+		b.BackgroundColor3 = Color3.fromRGB(30,30,36); b.Text = text
+		b.TextColor3 = Color3.fromRGB(200,200,208); b.TextSize = 12
+		b.Font = Enum.Font.GothamMedium; b.AutoButtonColor = false; b.Parent = str
+		Instance.new("UICorner", b).CornerRadius = UDim.new(0,8)
+		local ss = Instance.new("UIStroke", b)
+		ss.Color = Color3.fromRGB(255,255,255); ss.Thickness = 1; ss.Transparency = 0.82
+		ss.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		task.defer(function() AddButtonSweep(b, ss) end)
+		return b
+	end
+	UI.Settings_NewOpt = MakeStyleOption("New", 0)
+	UI.Settings_ClassicOpt = MakeStyleOption("Classic", 0.5)
+
+	-- Save data
+	local sdl = Instance.new("TextLabel")
+	sdl.Size = UDim2.new(1,-40,0,16); sdl.Position = UDim2.new(0,20,0,120)
+	sdl.BackgroundTransparency = 1; sdl.Text = "Guardar datos"
+	sdl.TextXAlignment = Enum.TextXAlignment.Left; sdl.TextColor3 = Color3.fromRGB(180,180,188)
+	sdl.TextSize = 11; sdl.Font = Enum.Font.Gotham; sdl.Parent = UI.Pages.Settings
+
+	local sdb = Instance.new("TextButton")
+	sdb.Size = UDim2.new(1,-40,0,44); sdb.Position = UDim2.new(0,20,0,142)
+	sdb.BackgroundColor3 = Color3.fromRGB(18,18,23); sdb.Text = ""
+	sdb.AutoButtonColor = false; sdb.Parent = UI.Pages.Settings
+	Instance.new("UICorner", sdb).CornerRadius = UDim.new(0,12)
+	local sdbs = Instance.new("UIStroke", sdb); sdbs.Color = Color3.fromRGB(50,50,58)
+
+	local sdt = Instance.new("TextLabel")
+	sdt.Size = UDim2.new(1,-70,0,20); sdt.Position = UDim2.new(0,14,0,4)
+	sdt.BackgroundTransparency = 1; sdt.Text = "Guardar scripts activos"
+	sdt.TextXAlignment = Enum.TextXAlignment.Left; sdt.TextColor3 = Color3.fromRGB(225,225,232)
+	sdt.TextSize = 12; sdt.Font = Enum.Font.GothamBold; sdt.Parent = sdb
+	local sds = Instance.new("TextLabel")
+	sds.Size = UDim2.new(1,-70,0,14); sds.Position = UDim2.new(0,14,0,22)
+	sds.BackgroundTransparency = 1; sds.Text = "Recargar al volver a entrar"
+	sds.TextXAlignment = Enum.TextXAlignment.Left; sds.TextColor3 = Color3.fromRGB(130,130,138)
+	sds.TextSize = 10; sds.Font = Enum.Font.Gotham; sds.Parent = sdb
+	local sdsw = Instance.new("Frame")
+	sdsw.Size = UDim2.fromOffset(36,20); sdsw.Position = UDim2.new(1,-48,0.5,-10)
+	sdsw.BackgroundColor3 = SaveDataEnabled and UI.ACCENT or Color3.fromRGB(70,70,78)
+	sdsw.BorderSizePixel = 0; sdsw.Parent = sdb
+	Instance.new("UICorner", sdsw).CornerRadius = UDim.new(1,0)
+	local sdk = Instance.new("Frame")
+	sdk.Size = UDim2.fromOffset(16,16)
+	sdk.Position = SaveDataEnabled and UDim2.new(1,-18,0.5,-8) or UDim2.fromOffset(2,2)
+	sdk.BackgroundColor3 = Color3.fromRGB(240,240,245); sdk.Parent = sdsw
+	Instance.new("UICorner", sdk).CornerRadius = UDim.new(1,0)
+	UI.SaveData_Switch = sdsw; UI.SaveData_Knob = sdk
+
+	-- Keybind
+	local kl = Instance.new("TextLabel")
+	kl.Size = UDim2.new(1,-40,0,16); kl.Position = UDim2.new(0,20,0,200)
+	kl.BackgroundTransparency = 1; kl.Text = "Tecla para minimizar"
+	kl.TextXAlignment = Enum.TextXAlignment.Left; kl.TextColor3 = Color3.fromRGB(180,180,188)
+	kl.TextSize = 11; kl.Font = Enum.Font.Gotham; kl.Parent = UI.Pages.Settings
+
+	local kr = Instance.new("Frame")
+	kr.Size = UDim2.new(1,-40,0,40); kr.Position = UDim2.new(0,20,0,222)
+	kr.BackgroundColor3 = Color3.fromRGB(18,18,23); kr.BorderSizePixel = 0; kr.Parent = UI.Pages.Settings
+	Instance.new("UICorner", kr).CornerRadius = UDim.new(0,12)
+	local krs = Instance.new("UIStroke", kr); krs.Color = Color3.fromRGB(50,50,58)
+	local kb = Instance.new("TextButton")
+	kb.Size = UDim2.new(1,-20,1,-10); kb.Position = UDim2.new(0,10,0,5)
+	kb.BackgroundColor3 = Color3.fromRGB(28,28,35); kb.Text = "M"
+	kb.TextColor3 = Color3.fromRGB(225,225,232); kb.TextSize = 12
+	kb.Font = Enum.Font.GothamBold; kb.AutoButtonColor = false; kb.Parent = kr
+	Instance.new("UICorner", kb).CornerRadius = UDim.new(0,8)
+	local kbs = Instance.new("UIStroke", kb)
+	kbs.Color = Color3.fromRGB(255,255,255); kbs.Thickness = 1; kbs.Transparency = 0.82
+	kbs.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	UI.KeybindBtn = kb
+end
+
+do
+	-- Bottom nav
+	UI.Bottom = Instance.new("Frame")
+	UI.Bottom.Size = UDim2.fromOffset(460,54); UI.Bottom.Position = UDim2.new(0.5,-230,1,-60)
+	UI.Bottom.BackgroundColor3 = Color3.fromRGB(18,18,22); UI.Bottom.BorderSizePixel = 0
+	UI.Bottom.Visible = false; UI.Bottom.Parent = UI.Content
+	Instance.new("UICorner", UI.Bottom).CornerRadius = UDim.new(0,27)
+	local bs = Instance.new("UIStroke", UI.Bottom); bs.Color = Color3.fromRGB(45,45,50)
+
+	UI.NavPill = Instance.new("Frame")
+	UI.NavPill.Size = UDim2.fromOffset(76,46); UI.NavPill.Position = UDim2.new(0,2,0,4)
+	UI.NavPill.BackgroundColor3 = Color3.fromRGB(255,255,255); UI.NavPill.BackgroundTransparency = 0.88
+	UI.NavPill.BorderSizePixel = 0; UI.NavPill.ZIndex = 2; UI.NavPill.Parent = UI.Bottom
+	Instance.new("UICorner", UI.NavPill).CornerRadius = UDim.new(1,0)
+
+	local function MakeNavButton(imageId, label, x, w)
+		local b = Instance.new("TextButton")
+		b.Size = UDim2.fromOffset(w,46); b.Position = UDim2.new(0,x,0,4)
+		b.BackgroundTransparency = 1; b.Text = ""; b.AutoButtonColor = false
+		b.ZIndex = 4; b.Parent = UI.Bottom
+		Instance.new("UICorner", b).CornerRadius = UDim.new(0,12)
+		local ic = Instance.new("ImageLabel")
+		ic.Size = UDim2.fromOffset(22,22); ic.Position = UDim2.new(0.5,-11,0,6)
+		ic.BackgroundTransparency = 1; ic.Image = "rbxassetid://"..imageId; ic.ZIndex = 7; ic.Parent = b
+		local lb = Instance.new("TextLabel")
+		lb.Size = UDim2.new(1,0,0,14); lb.Position = UDim2.new(0,0,0,30)
+		lb.BackgroundTransparency = 1; lb.Text = label
+		lb.TextXAlignment = Enum.TextXAlignment.Center; lb.TextColor3 = Color3.fromRGB(180,180,190)
+		lb.TextSize = 10; lb.Font = Enum.Font.GothamMedium; lb.ZIndex = 7; lb.Parent = b
+		return b
+	end
+	UI.NavHome = MakeNavButton("135130950196086", "Home", 2, 76)
+	UI.NavScripts = MakeNavButton("79949598410209", "Scripts", 78, 76)
+	UI.NavFling = MakeNavButton("101363781360377", "Fling", 154, 76)
+	UI.NavSkys = MakeNavButton("107588676615037", "Skys", 230, 76)
+	UI.NavAnims = MakeNavButton("135130950196086", "Anims", 306, 76)
+	UI.NavSettings = MakeNavButton("114349145444051", "Settings", 382, 76)
+
+	local wm = Instance.new("TextLabel")
+	wm.Size = UDim2.new(1,-20,0,14); wm.Position = UDim2.new(0,10,1,-72)
+	wm.BackgroundTransparency = 1; wm.Text = "Panel creado por Sam"
+	wm.TextXAlignment = Enum.TextXAlignment.Center; wm.TextColor3 = Color3.fromRGB(110,110,118)
+	wm.TextSize = 10; wm.Font = Enum.Font.Gotham; wm.TextTransparency = 0.4
+	wm.ZIndex = 15; wm.Parent = UI.Content
+end
+
+do
+	-- Notif panel
+	local np = Instance.new("Frame")
+	np.Size = UDim2.fromOffset(280,200); np.Position = UDim2.new(0,-300,0,52)
+	np.BackgroundColor3 = Color3.fromRGB(16,16,21); np.BorderSizePixel = 0
+	np.ZIndex = 20; np.Visible = false; np.Parent = UI.Main
+	Instance.new("UICorner", np).CornerRadius = UDim.new(0,12)
+	local nps = Instance.new("UIStroke", np); nps.Color = Color3.fromRGB(50,50,58)
+	local npt = Instance.new("TextLabel")
+	npt.Size = UDim2.new(1,-24,0,28); npt.Position = UDim2.new(0,12,0,8)
+	npt.BackgroundTransparency = 1; npt.Text = "Notificaciones"
+	npt.TextXAlignment = Enum.TextXAlignment.Left; npt.TextColor3 = Color3.fromRGB(245,245,247)
+	npt.TextSize = 14; npt.Font = Enum.Font.GothamBold; npt.ZIndex = 21; npt.Parent = np
+	local npl = Instance.new("Frame")
+	npl.Size = UDim2.new(1,-24,0,1); npl.Position = UDim2.new(0,12,0,40)
+	npl.BackgroundColor3 = Color3.fromRGB(40,40,46); npl.BorderSizePixel = 0; npl.ZIndex = 21; npl.Parent = np
+	local ne = Instance.new("Frame")
+	ne.Size = UDim2.new(1,-24,0,120); ne.Position = UDim2.new(0,12,0,48)
+	ne.BackgroundColor3 = Color3.fromRGB(22,22,28); ne.BorderSizePixel = 0; ne.ZIndex = 21; ne.Parent = np
+	Instance.new("UICorner", ne).CornerRadius = UDim.new(0,8)
+	local nes = Instance.new("UIStroke", ne); nes.Color = Color3.fromRGB(60,60,70)
+	local net = Instance.new("TextLabel")
+	net.Size = UDim2.new(1,-20,0,20); net.Position = UDim2.new(0,10,0,8)
+	net.BackgroundTransparency = 1; net.Text = "Nueva Actualización!"
+	net.TextXAlignment = Enum.TextXAlignment.Left; net.TextColor3 = Color3.fromRGB(245,245,247)
+	net.TextSize = 12; net.Font = Enum.Font.GothamBold; net.ZIndex = 22; net.Parent = ne
+	local netx = Instance.new("TextLabel")
+	netx.Size = UDim2.new(1,-20,0,50); netx.Position = UDim2.new(0,10,0,30)
+	netx.BackgroundTransparency = 1; netx.Text = "La próxima actualización traerá más de 20 skyboxes nuevos!"
+	netx.TextXAlignment = Enum.TextXAlignment.Left; netx.TextYAlignment = Enum.TextYAlignment.Top
+	netx.TextWrapped = true; netx.TextColor3 = Color3.fromRGB(200,200,208)
+	netx.TextSize = 11; netx.Font = Enum.Font.Gotham; netx.ZIndex = 22; netx.Parent = ne
+	local rb = Instance.new("TextButton")
+	rb.Size = UDim2.new(1,-20,0,24); rb.Position = UDim2.new(0,10,1,-32)
+	rb.BackgroundColor3 = Color3.fromRGB(40,40,48); rb.Text = "Leído"
+	rb.TextColor3 = Color3.fromRGB(225,225,232); rb.TextSize = 11
+	rb.Font = Enum.Font.GothamBold; rb.AutoButtonColor = false; rb.ZIndex = 22; rb.Parent = ne
+	Instance.new("UICorner", rb).CornerRadius = UDim.new(0,6)
+	UI.NotifPanel = np
+	UI.NotifReadBtn = rb
+end
+
+do
+	-- Reopen
+	local r = Instance.new("TextButton")
+	r.Size = UDim2.fromOffset(52,52); r.Position = UDim2.new(0,16,1,-68)
+	r.BackgroundColor3 = Color3.fromRGB(255,255,255); r.Text = ""
+	r.AutoButtonColor = false; r.Visible = false; r.Active = true; r.Parent = UI.GUI
+	Instance.new("UICorner", r).CornerRadius = UDim.new(1,0)
+	local rs = Instance.new("UIStroke", r); rs.Color = Color3.fromRGB(220,220,220)
+	local ri = Instance.new("ImageLabel")
+	ri.Size = UDim2.new(1,-16,1,-16); ri.Position = UDim2.new(0,8,0,8)
+	ri.BackgroundTransparency = 1; ri.Image = "rbxassetid://92472718379692"; ri.Parent = r
+	UI.Reopen = r
+	UI.ReopenPos = UDim2.new(0,16,1,-68)
+end
+
+-- ============================================================
+-- STATE
+-- ============================================================
+local State = {
+	buttonStyle = "New",
+	activeTab = nil,
+	activePill = nil,
+	unlocked = false,
+	minimized = false,
+	isMaximized = false,
+	notifOpen = false,
+	animating = false,
+	currentPageName = "Home",
+	CurrentKey = Enum.KeyCode.M,
+	listening = false,
+	NormalSize = UDim2.new(0,480,0,300),
+	NormalPosition = UDim2.fromScale(0.5,0.5),
+	PreMaxSize = nil,
+	PreMaxPos = nil,
+	notifRead = Storage.LoadNotifRead(),
+}
+local OnLoginCallbacks = {}
+
+-- ============================================================
+-- FUNCIONES (helpers que necesitan estar fuera de do blocks)
+-- ============================================================
 local function RefreshMostUsed()
+	local MostUsedList = UI.Home_MostUsedList
+	local mul = UI.Home_MostUsedLayout
 	for _, c in ipairs(MostUsedList:GetChildren()) do if c ~= mul then c:Destroy() end end
 	local sorted = {}
 	for k, v in pairs(ToggleUsage) do
@@ -588,69 +795,44 @@ local function RefreshMostUsed()
 	end)
 	if #sorted == 0 then
 		local lbl = Instance.new("TextLabel")
-		lbl.Size = UDim2.new(1,0,0,20)
-		lbl.BackgroundTransparency = 1
-		lbl.Text = "Sin datos de uso aún"
-		lbl.TextXAlignment = Enum.TextXAlignment.Left
-		lbl.TextColor3 = Color3.fromRGB(120,120,128)
-		lbl.TextSize = 11
-		lbl.Font = Enum.Font.Gotham
-		lbl.LayoutOrder = 1
-		lbl.Parent = MostUsedList
+		lbl.Size = UDim2.new(1,0,0,20); lbl.BackgroundTransparency = 1
+		lbl.Text = "Sin datos de uso aún"; lbl.TextXAlignment = Enum.TextXAlignment.Left
+		lbl.TextColor3 = Color3.fromRGB(120,120,128); lbl.TextSize = 11
+		lbl.Font = Enum.Font.Gotham; lbl.LayoutOrder = 1; lbl.Parent = MostUsedList
 		return
 	end
 	for i = 1, math.min(5, #sorted) do
 		local entry = Instance.new("Frame")
-		entry.Size = UDim2.new(1,0,0,30)
-		entry.BackgroundColor3 = Color3.fromRGB(18,18,23)
-		entry.BorderSizePixel = 0
-		entry.LayoutOrder = i
-		entry.Parent = MostUsedList
+		entry.Size = UDim2.new(1,0,0,30); entry.BackgroundColor3 = Color3.fromRGB(18,18,23)
+		entry.BorderSizePixel = 0; entry.LayoutOrder = i; entry.Parent = MostUsedList
 		Instance.new("UICorner", entry).CornerRadius = UDim.new(0,8)
 		local num = Instance.new("TextLabel")
-		num.Size = UDim2.fromOffset(20,20)
-		num.Position = UDim2.new(0,4,0.5,-10)
-		num.BackgroundColor3 = ACCENT
-		num.Text = tostring(i)
-		num.TextColor3 = Color3.fromRGB(20,20,24)
-		num.TextSize = 11
-		num.Font = Enum.Font.GothamBold
-		num.Parent = entry
+		num.Size = UDim2.fromOffset(20,20); num.Position = UDim2.new(0,4,0.5,-10)
+		num.BackgroundColor3 = UI.ACCENT; num.Text = tostring(i)
+		num.TextColor3 = Color3.fromRGB(20,20,24); num.TextSize = 11
+		num.Font = Enum.Font.GothamBold; num.Parent = entry
 		Instance.new("UICorner", num).CornerRadius = UDim.new(1,0)
 		local nm = Instance.new("TextLabel")
-		nm.Size = UDim2.new(1,-90,1,0)
-		nm.Position = UDim2.new(0,30,0,0)
-		nm.BackgroundTransparency = 1
-		nm.Text = sorted[i].name
-		nm.TextXAlignment = Enum.TextXAlignment.Left
-		nm.TextTruncate = Enum.TextTruncate.AtEnd
-		nm.TextColor3 = Color3.fromRGB(225,225,232)
-		nm.TextSize = 11
-		nm.Font = Enum.Font.GothamMedium
-		nm.Parent = entry
+		nm.Size = UDim2.new(1,-90,1,0); nm.Position = UDim2.new(0,30,0,0)
+		nm.BackgroundTransparency = 1; nm.Text = sorted[i].name
+		nm.TextXAlignment = Enum.TextXAlignment.Left; nm.TextTruncate = Enum.TextTruncate.AtEnd
+		nm.TextColor3 = Color3.fromRGB(225,225,232); nm.TextSize = 11
+		nm.Font = Enum.Font.GothamMedium; nm.Parent = entry
 		local registry = ToggleRegistry[sorted[i].name]
 		local msw = Instance.new("Frame")
-		msw.Size = UDim2.fromOffset(32,18)
-		msw.Position = UDim2.new(1,-40,0.5,-9)
-		msw.BackgroundColor3 = Color3.fromRGB(70,70,78)
-		msw.BorderSizePixel = 0
-		msw.Parent = entry
+		msw.Size = UDim2.fromOffset(32,18); msw.Position = UDim2.new(1,-40,0.5,-9)
+		msw.BackgroundColor3 = Color3.fromRGB(70,70,78); msw.BorderSizePixel = 0; msw.Parent = entry
 		Instance.new("UICorner", msw).CornerRadius = UDim.new(1,0)
 		local msknob = Instance.new("Frame")
-		msknob.Size = UDim2.fromOffset(14,14)
-		msknob.Position = UDim2.fromOffset(2,2)
-		msknob.BackgroundColor3 = Color3.fromRGB(240,240,245)
-		msknob.Parent = msw
+		msknob.Size = UDim2.fromOffset(14,14); msknob.Position = UDim2.fromOffset(2,2)
+		msknob.BackgroundColor3 = Color3.fromRGB(240,240,245); msknob.Parent = msw
 		Instance.new("UICorner", msknob).CornerRadius = UDim.new(1,0)
 		local msc = Instance.new("TextButton")
-		msc.Size = UDim2.new(1,0,1,0)
-		msc.BackgroundTransparency = 1
-		msc.Text = ""
-		msc.ZIndex = 3
-		msc.Parent = entry
+		msc.Size = UDim2.new(1,0,1,0); msc.BackgroundTransparency = 1; msc.Text = ""
+		msc.ZIndex = 3; msc.Parent = entry
 		local function updateMSVisual(v)
-			msw.BackgroundColor3 = v and ACCENT or Color3.fromRGB(70,70,78)
-			TweenService:Create(msknob, TweenInfo.new(0.15), {Position = v and UDim2.new(1,-16,0.5,-7) or UDim2.fromOffset(2,2)}):Play()
+			msw.BackgroundColor3 = v and UI.ACCENT or Color3.fromRGB(70,70,78)
+			S.Tween:Create(msknob, TweenInfo.new(0.15), {Position = v and UDim2.new(1,-16,0.5,-7) or UDim2.fromOffset(2,2)}):Play()
 		end
 		if registry then
 			updateMSVisual(registry.getActive())
@@ -665,142 +847,57 @@ local function RefreshMostUsed()
 	end
 end
 
-local ScriptsTitle = Instance.new("TextLabel")
-ScriptsTitle.Size = UDim2.new(1,-40,0,26)
-ScriptsTitle.Position = UDim2.new(0,20,0,12)
-ScriptsTitle.BackgroundTransparency = 1
-ScriptsTitle.Text = "Scripts"
-ScriptsTitle.TextXAlignment = Enum.TextXAlignment.Left
-ScriptsTitle.TextColor3 = Color3.fromRGB(245,245,247)
-ScriptsTitle.TextSize = 20
-ScriptsTitle.Font = Enum.Font.GothamBold
-ScriptsTitle.Parent = ScriptsPage
-
-local ScriptsSearch = Instance.new("TextBox")
-ScriptsSearch.Size = UDim2.new(1,-40,0,32)
-ScriptsSearch.Position = UDim2.new(0,20,0,44)
-ScriptsSearch.BackgroundColor3 = Color3.fromRGB(18,18,23)
-ScriptsSearch.PlaceholderText = "Search scripts..."
-ScriptsSearch.PlaceholderColor3 = Color3.fromRGB(105,105,112)
-ScriptsSearch.Text = ""
-ScriptsSearch.TextColor3 = Color3.fromRGB(240,240,240)
-ScriptsSearch.TextSize = 12
-ScriptsSearch.Font = Enum.Font.Gotham
-ScriptsSearch.TextXAlignment = Enum.TextXAlignment.Left
-ScriptsSearch.ClearTextOnFocus = false
-ScriptsSearch.TextStrokeTransparency = 1
-ScriptsSearch.Parent = ScriptsPage
-Instance.new("UICorner", ScriptsSearch).CornerRadius = UDim.new(0,10)
-local SSS = Instance.new("UIStroke", ScriptsSearch)
-SSS.Color = Color3.fromRGB(52,52,60)
-local SS_Pad = Instance.new("UIPadding", ScriptsSearch)
-SS_Pad.PaddingLeft = UDim.new(0,32)
-local ScriptsSearchIcon = Instance.new("ImageLabel")
-ScriptsSearchIcon.Size = UDim2.fromOffset(14,14)
-ScriptsSearchIcon.Position = UDim2.new(0,10,0.5,-7)
-ScriptsSearchIcon.BackgroundTransparency = 1
-ScriptsSearchIcon.Image = "rbxassetid://6031091004"
-ScriptsSearchIcon.ImageColor3 = Color3.fromRGB(150,150,158)
-ScriptsSearchIcon.ZIndex = 3
-ScriptsSearchIcon.Parent = ScriptsSearch
-
-local ScriptsRow = Instance.new("Frame")
-ScriptsRow.Size = UDim2.new(1,-40,0,36)
-ScriptsRow.Position = UDim2.new(0,20,0,84)
-ScriptsRow.BackgroundTransparency = 1
-ScriptsRow.Parent = ScriptsPage
-local ScriptsLayout = Instance.new("UIListLayout", ScriptsRow)
-ScriptsLayout.FillDirection = Enum.FillDirection.Horizontal
-ScriptsLayout.Padding = UDim.new(0,6)
-
-local ScriptsContent = Instance.new("Frame")
-ScriptsContent.Size = UDim2.new(1,-40,0,0)
-ScriptsContent.Position = UDim2.new(0,20,0,130)
-ScriptsContent.BackgroundTransparency = 1
-ScriptsContent.AutomaticSize = Enum.AutomaticSize.Y
-ScriptsContent.Parent = ScriptsPage
-
-local function MakeTabContent(name)
-	local f = Instance.new("Frame")
-	f.Name = name
-	f.Size = UDim2.new(1,0,0,0)
-	f.AutomaticSize = Enum.AutomaticSize.Y
-	f.BackgroundTransparency = 1
-	f.Visible = false
-	f.Parent = ScriptsContent
-	local lay = Instance.new("UIListLayout", f)
-	lay.Padding = UDim.new(0,6)
-	lay.SortOrder = Enum.SortOrder.LayoutOrder
-	local pad = Instance.new("UIPadding", f)
-	pad.PaddingTop = UDim.new(0,2)
-	pad.PaddingBottom = UDim.new(0,2)
-	return f
-end
-
-local MainScriptTab = MakeTabContent("MainScript")
-local ExtraTab = MakeTabContent("Extra")
-
 local function cleanGuis(names)
 	if not names then return end
-	for _, gui in ipairs(PlayerGui:GetChildren()) do
-		for _, n in ipairs(names) do
-			if gui.Name == n or gui.Name:lower():find(n:lower(),1,true) then pcall(function() gui:Destroy() end) end
+	local function scan(parent)
+		for _, gui in ipairs(parent:GetChildren()) do
+			for _, n in ipairs(names) do
+				if gui.Name == n or gui.Name:lower():find(n:lower(),1,true) then pcall(function() gui:Destroy() end) end
+			end
 		end
 	end
-	for _, gui in ipairs(CoreGui:GetChildren()) do
-		for _, n in ipairs(names) do
-			if gui.Name == n or gui.Name:lower():find(n:lower(),1,true) then pcall(function() gui:Destroy() end) end
-		end
-	end
+	scan(S.PlayerGui)
+	scan(S.CoreGui)
 end
 
 local function CreateToggle(parent, text, callback, order)
 	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(1,0,0,36)
-	btn.BackgroundColor3 = Color3.fromRGB(20,20,26)
-	btn.Text = ""
-	btn.AutoButtonColor = false
-	btn.LayoutOrder = order or 1
-	btn.Parent = parent
+	btn.Size = UDim2.new(1,0,0,36); btn.BackgroundColor3 = Color3.fromRGB(20,20,26)
+	btn.Text = ""; btn.AutoButtonColor = false
+	btn.LayoutOrder = order or 1; btn.Parent = parent
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(0,10)
 	local stroke = Instance.new("UIStroke", btn)
-	stroke.Color = Color3.fromRGB(255,255,255)
-	stroke.Thickness = 1
-	stroke.Transparency = 0.82
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Color = Color3.fromRGB(255,255,255); stroke.Thickness = 1
+	stroke.Transparency = 0.82; stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(1,-70,1,0)
-	label.Position = UDim2.new(0,14,0,0)
-	label.BackgroundTransparency = 1
-	label.Text = text
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.TextColor3 = Color3.fromRGB(225,225,232)
-	label.TextSize = 12
-	label.Font = Enum.Font.GothamBold
-	label.ZIndex = 7
-	label.Parent = btn
+	label.Size = UDim2.new(1,-70,1,0); label.Position = UDim2.new(0,14,0,0)
+	label.BackgroundTransparency = 1; label.Text = text
+	label.TextXAlignment = Enum.TextXAlignment.Left; label.TextColor3 = Color3.fromRGB(225,225,232)
+	label.TextSize = 12; label.Font = Enum.Font.GothamBold; label.ZIndex = 7; label.Parent = btn
 	local sw = Instance.new("Frame")
-	sw.Size = UDim2.fromOffset(36,20)
-	sw.Position = UDim2.new(1,-48,0.5,-10)
-	sw.BackgroundColor3 = Color3.fromRGB(70,70,78)
-	sw.ZIndex = 7
-	sw.Parent = btn
+	sw.Size = UDim2.fromOffset(36,20); sw.Position = UDim2.new(1,-48,0.5,-10)
+	sw.BackgroundColor3 = Color3.fromRGB(70,70,78); sw.ZIndex = 7; sw.Parent = btn
 	Instance.new("UICorner", sw).CornerRadius = UDim.new(1,0)
 	local knob = Instance.new("Frame")
-	knob.Size = UDim2.fromOffset(16,16)
-	knob.Position = UDim2.fromOffset(2,2)
-	knob.BackgroundColor3 = Color3.fromRGB(240,240,245)
-	knob.ZIndex = 8
-	knob.Parent = sw
+	knob.Size = UDim2.fromOffset(16,16); knob.Position = UDim2.fromOffset(2,2)
+	knob.BackgroundColor3 = Color3.fromRGB(240,240,245); knob.ZIndex = 8; knob.Parent = sw
 	Instance.new("UICorner", knob).CornerRadius = UDim.new(1,0)
 	local active = false
 	local function setVisual(v)
-		sw.BackgroundColor3 = v and ACCENT or Color3.fromRGB(70,70,78)
-		TweenService:Create(knob, TweenInfo.new(0.15), {Position = v and UDim2.new(1,-18,0.5,-8) or UDim2.fromOffset(2,2)}):Play()
+		sw.BackgroundColor3 = v and UI.ACCENT or Color3.fromRGB(70,70,78)
+		S.Tween:Create(knob, TweenInfo.new(0.15), {Position = v and UDim2.new(1,-18,0.5,-8) or UDim2.fromOffset(2,2)}):Play()
 	end
 	local function registerUsage()
 		ToggleUsage[text] = (ToggleUsage[text] or 0) + 1
-		SaveUsage(ToggleUsage)
+		Storage.SaveUsage(ToggleUsage)
+	end
+	local function SaveActiveToggles()
+		if not SaveDataEnabled then return end
+		local activeList = {}
+		for name, reg in pairs(ToggleRegistry) do
+			if reg.getActive() then table.insert(activeList, name) end
+		end
+		pcall(function() if writefile then writefile("wb_saved_toggles.json", S.Http:JSONEncode(activeList)) end end)
 	end
 	btn.MouseButton1Click:Connect(function()
 		if not active then
@@ -809,30 +906,23 @@ local function CreateToggle(parent, text, callback, order)
 				ShowNotif("No se puede activar", "Desactiva primero: " .. blocker, 3)
 				return
 			end
-			active = true
-			registerUsage()
-			SetExclusiveActive(text)
+			active = true; registerUsage(); SetExclusiveActive(text)
 		else
-			active = false
-			ClearExclusiveActive(text)
+			active = false; ClearExclusiveActive(text)
 		end
-		setVisual(active)
-		pcall(callback, active)
-		pcall(SaveActiveToggles)
+		setVisual(active); pcall(callback, active); pcall(SaveActiveToggles)
 	end)
 	ToggleRegistry[text] = {
 		getActive = function() return active end,
 		setActive = function(v)
 			if v == active then return end
 			if v then
-				local canActivate, blocker = CanActivate(text)
+				local canActivate = CanActivate(text)
 				if not canActivate then return end
 			end
 			active = v
 			if active then registerUsage() SetExclusiveActive(text) else ClearExclusiveActive(text) end
-			setVisual(active)
-			pcall(callback, active)
-			pcall(SaveActiveToggles)
+			setVisual(active); pcall(callback, active); pcall(SaveActiveToggles)
 		end
 	}
 	table.insert(AllToggles, {btn=btn, label=label, text=text, parent=parent})
@@ -840,591 +930,121 @@ local function CreateToggle(parent, text, callback, order)
 	return btn
 end
 
-local function MakeScriptPill(text, order)
-	local b = Instance.new("TextButton")
-	b.Size = UDim2.fromOffset(150,36)
-	b.BackgroundColor3 = Color3.fromRGB(20,20,26)
-	b.Text = text
-	b.TextColor3 = Color3.fromRGB(225,225,232)
-	b.TextSize = 13
-	b.Font = Enum.Font.GothamBold
-	b.AutoButtonColor = false
-	b.LayoutOrder = order
-	b.Parent = ScriptsRow
-	Instance.new("UICorner", b).CornerRadius = UDim.new(1,0)
-	local s = Instance.new("UIStroke", b)
-	s.Color = Color3.fromRGB(255,255,255)
-	s.Thickness = 1
-	s.Transparency = 0.82
-	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	task.defer(function() AddButtonSweep(b, s) end)
-	return b
-end
-
-local MainScriptBtn = MakeScriptPill("Script", 1)
-local ExtraBtn = MakeScriptPill("Extra", 2)
-
-local function SelectTab(tab, pill)
-	if activeTab == tab then return end
-	if activeTab then
-		local oldTab = activeTab
-		local oldPill = activePill
-		TweenService:Create(oldTab, TweenInfo.new(0.18), {Position=UDim2.new(-0.15,0,0,0)}):Play()
-		if oldPill then
-			TweenService:Create(oldPill, TweenInfo.new(0.18), {BackgroundColor3 = Color3.fromRGB(20,20,26), TextColor3 = Color3.fromRGB(225,225,232)}):Play()
-			local ps = oldPill:FindFirstChildOfClass("UIStroke")
-			if ps then TweenService:Create(ps, TweenInfo.new(0.18), {Color=Color3.fromRGB(255,255,255), Transparency = 0.82}):Play() end
-		end
-		task.delay(0.18, function()
-			if oldTab then oldTab.Visible = false oldTab.Position = UDim2.new(0,0,0,0) end
-		end)
+-- ============================================================
+-- TAB SELECTOR
+-- ============================================================
+do
+	local function MakeScriptPill(text, order)
+		local b = Instance.new("TextButton")
+		b.Size = UDim2.fromOffset(150,36); b.BackgroundColor3 = Color3.fromRGB(20,20,26)
+		b.Text = text; b.TextColor3 = Color3.fromRGB(225,225,232); b.TextSize = 13
+		b.Font = Enum.Font.GothamBold; b.AutoButtonColor = false
+		b.LayoutOrder = order; b.Parent = UI.Scripts_Row
+		Instance.new("UICorner", b).CornerRadius = UDim.new(1,0)
+		local s = Instance.new("UIStroke", b)
+		s.Color = Color3.fromRGB(255,255,255); s.Thickness = 1
+		s.Transparency = 0.82; s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		task.defer(function() AddButtonSweep(b, s) end)
+		return b
 	end
-	activeTab = tab
-	activePill = pill
-	tab.Visible = true
-	tab.Position = UDim2.new(0.15,0,0,0)
-	TweenService:Create(tab, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position=UDim2.new(0,0,0,0)}):Play()
-	TweenService:Create(pill, TweenInfo.new(0.18), {BackgroundColor3 = ACCENT:Lerp(Color3.new(0,0,0),0.7), TextColor3 = ACCENT:Lerp(Color3.new(1,1,1),0.5)}):Play()
-	local ps = pill:FindFirstChildOfClass("UIStroke")
-	if ps then TweenService:Create(ps, TweenInfo.new(0.18), {Color=ACCENT, Transparency = 0.2}):Play() end
+	UI.Scripts_BtnMain = MakeScriptPill("Script", 1)
+	UI.Scripts_BtnExtra = MakeScriptPill("Extra", 2)
+
+	local function SelectTab(tab, pill)
+		if State.activeTab == tab then return end
+		if State.activeTab then
+			local oldTab, oldPill = State.activeTab, State.activePill
+			S.Tween:Create(oldTab, TweenInfo.new(0.18), {Position=UDim2.new(-0.15,0,0,0)}):Play()
+			if oldPill then
+				S.Tween:Create(oldPill, TweenInfo.new(0.18), {BackgroundColor3 = Color3.fromRGB(20,20,26), TextColor3 = Color3.fromRGB(225,225,232)}):Play()
+				local ps = oldPill:FindFirstChildOfClass("UIStroke")
+				if ps then S.Tween:Create(ps, TweenInfo.new(0.18), {Color=Color3.fromRGB(255,255,255), Transparency = 0.82}):Play() end
+			end
+			task.delay(0.18, function()
+				if oldTab then oldTab.Visible = false oldTab.Position = UDim2.new(0,0,0,0) end
+			end)
+		end
+		State.activeTab, State.activePill = tab, pill
+		tab.Visible = true; tab.Position = UDim2.new(0.15,0,0,0)
+		S.Tween:Create(tab, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position=UDim2.new(0,0,0,0)}):Play()
+		S.Tween:Create(pill, TweenInfo.new(0.18), {BackgroundColor3 = UI.ACCENT:Lerp(Color3.new(0,0,0),0.7), TextColor3 = UI.ACCENT:Lerp(Color3.new(1,1,1),0.5)}):Play()
+		local ps = pill:FindFirstChildOfClass("UIStroke")
+		if ps then S.Tween:Create(ps, TweenInfo.new(0.18), {Color=UI.ACCENT, Transparency = 0.2}):Play() end
+	end
+	UI.SelectTab = SelectTab
+
+	UI.Scripts_BtnMain.MouseButton1Click:Connect(function() SelectTab(UI.Tabs.MainScript, UI.Scripts_BtnMain) end)
+	UI.Scripts_BtnExtra.MouseButton1Click:Connect(function() SelectTab(UI.Tabs.Extra, UI.Scripts_BtnExtra) end)
 end
 
-MainScriptBtn.MouseButton1Click:Connect(function() SelectTab(MainScriptTab, MainScriptBtn) end)
-ExtraBtn.MouseButton1Click:Connect(function() SelectTab(ExtraTab, ExtraBtn) end)
-
-ScriptsSearch:GetPropertyChangedSignal("Text"):Connect(function()
-	local q = ScriptsSearch.Text:lower()
+-- Search
+UI.Scripts_Search:GetPropertyChangedSignal("Text"):Connect(function()
+	local q = UI.Scripts_Search.Text:lower()
 	for _, entry in ipairs(AllToggles) do
 		if q == "" then entry.btn.Visible = true
 		else entry.btn.Visible = entry.text:lower():find(q,1,true) ~= nil end
 	end
 end)
 
-local FlingTitle = Instance.new("TextLabel")
-FlingTitle.Size = UDim2.new(1,-40,0,26)
-FlingTitle.Position = UDim2.new(0,20,0,12)
-FlingTitle.BackgroundTransparency = 1
-FlingTitle.Text = "Fling Players"
-FlingTitle.TextXAlignment = Enum.TextXAlignment.Left
-FlingTitle.TextColor3 = Color3.fromRGB(245,245,247)
-FlingTitle.TextSize = 20
-FlingTitle.Font = Enum.Font.GothamBold
-FlingTitle.Parent = FlingPage
-
-local SkysTitle = Instance.new("TextLabel")
-SkysTitle.Size = UDim2.new(1,-40,0,26)
-SkysTitle.Position = UDim2.new(0,20,0,12)
-SkysTitle.BackgroundTransparency = 1
-SkysTitle.Text = "Skys"
-SkysTitle.TextXAlignment = Enum.TextXAlignment.Left
-SkysTitle.TextColor3 = Color3.fromRGB(245,245,247)
-SkysTitle.TextSize = 20
-SkysTitle.Font = Enum.Font.GothamBold
-SkysTitle.Parent = SkysPage
-
-local SettingsTitle = Instance.new("TextLabel")
-SettingsTitle.Size = UDim2.new(1,-40,0,26)
-SettingsTitle.Position = UDim2.new(0,20,0,12)
-SettingsTitle.BackgroundTransparency = 1
-SettingsTitle.Text = "Settings"
-SettingsTitle.TextXAlignment = Enum.TextXAlignment.Left
-SettingsTitle.TextColor3 = Color3.fromRGB(245,245,247)
-SettingsTitle.TextSize = 20
-SettingsTitle.Font = Enum.Font.GothamBold
-SettingsTitle.Parent = SettingsPage
-
-local StyleLabel = Instance.new("TextLabel")
-StyleLabel.Size = UDim2.new(1,-40,0,16)
-StyleLabel.Position = UDim2.new(0,20,0,46)
-StyleLabel.BackgroundTransparency = 1
-StyleLabel.Text = "Estilo de botones"
-StyleLabel.TextXAlignment = Enum.TextXAlignment.Left
-StyleLabel.TextColor3 = Color3.fromRGB(180,180,188)
-StyleLabel.TextSize = 11
-StyleLabel.Font = Enum.Font.Gotham
-StyleLabel.Parent = SettingsPage
-
-local StyleRow = Instance.new("Frame")
-StyleRow.Size = UDim2.new(1,-40,0,40)
-StyleRow.Position = UDim2.new(0,20,0,66)
-StyleRow.BackgroundColor3 = Color3.fromRGB(18,18,23)
-StyleRow.BorderSizePixel = 0
-StyleRow.Parent = SettingsPage
-Instance.new("UICorner", StyleRow).CornerRadius = UDim.new(0,12)
-local StyleStroke = Instance.new("UIStroke", StyleRow)
-StyleStroke.Color = Color3.fromRGB(50,50,58)
-
-local function MakeStyleOption(text, x)
-	local b = Instance.new("TextButton")
-	b.Size = UDim2.new(0.5,-8,1,-10)
-	b.Position = UDim2.new(x,4,0,5)
-	b.BackgroundColor3 = Color3.fromRGB(30,30,36)
-	b.Text = text
-	b.TextColor3 = Color3.fromRGB(200,200,208)
-	b.TextSize = 12
-	b.Font = Enum.Font.GothamMedium
-	b.AutoButtonColor = false
-	b.Parent = StyleRow
-	Instance.new("UICorner", b).CornerRadius = UDim.new(0,8)
-	local soStroke = Instance.new("UIStroke", b)
-	soStroke.Color = Color3.fromRGB(255,255,255)
-	soStroke.Thickness = 1
-	soStroke.Transparency = 0.82
-	soStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	task.defer(function() AddButtonSweep(b, soStroke) end)
-	return b
-end
-
-local NewOption = MakeStyleOption("New", 0)
-local ClassicOption = MakeStyleOption("Classic", 0.5)
-
-local SaveDataLabel = Instance.new("TextLabel")
-SaveDataLabel.Size = UDim2.new(1,-40,0,16)
-SaveDataLabel.Position = UDim2.new(0,20,0,120)
-SaveDataLabel.BackgroundTransparency = 1
-SaveDataLabel.Text = "Guardar datos"
-SaveDataLabel.TextXAlignment = Enum.TextXAlignment.Left
-SaveDataLabel.TextColor3 = Color3.fromRGB(180,180,188)
-SaveDataLabel.TextSize = 11
-SaveDataLabel.Font = Enum.Font.Gotham
-SaveDataLabel.Parent = SettingsPage
-
-local SaveDataBtn = Instance.new("TextButton")
-SaveDataBtn.Size = UDim2.new(1,-40,0,44)
-SaveDataBtn.Position = UDim2.new(0,20,0,142)
-SaveDataBtn.BackgroundColor3 = Color3.fromRGB(18,18,23)
-SaveDataBtn.Text = ""
-SaveDataBtn.AutoButtonColor = false
-SaveDataBtn.Parent = SettingsPage
-Instance.new("UICorner", SaveDataBtn).CornerRadius = UDim.new(0,12)
-local SaveDataStroke = Instance.new("UIStroke", SaveDataBtn)
-SaveDataStroke.Color = Color3.fromRGB(50,50,58)
-
-local SD_Title = Instance.new("TextLabel")
-SD_Title.Size = UDim2.new(1,-70,0,20)
-SD_Title.Position = UDim2.new(0,14,0,4)
-SD_Title.BackgroundTransparency = 1
-SD_Title.Text = "Guardar scripts activos"
-SD_Title.TextXAlignment = Enum.TextXAlignment.Left
-SD_Title.TextColor3 = Color3.fromRGB(225,225,232)
-SD_Title.TextSize = 12
-SD_Title.Font = Enum.Font.GothamBold
-SD_Title.Parent = SaveDataBtn
-
-local SD_Sub = Instance.new("TextLabel")
-SD_Sub.Size = UDim2.new(1,-70,0,14)
-SD_Sub.Position = UDim2.new(0,14,0,22)
-SD_Sub.BackgroundTransparency = 1
-SD_Sub.Text = "Recargar al volver a entrar"
-SD_Sub.TextXAlignment = Enum.TextXAlignment.Left
-SD_Sub.TextColor3 = Color3.fromRGB(130,130,138)
-SD_Sub.TextSize = 10
-SD_Sub.Font = Enum.Font.Gotham
-SD_Sub.Parent = SaveDataBtn
-
-local SD_Switch = Instance.new("Frame")
-SD_Switch.Size = UDim2.fromOffset(36,20)
-SD_Switch.Position = UDim2.new(1,-48,0.5,-10)
-SD_Switch.BackgroundColor3 = SaveDataEnabled and ACCENT or Color3.fromRGB(70,70,78)
-SD_Switch.BorderSizePixel = 0
-SD_Switch.Parent = SaveDataBtn
-Instance.new("UICorner", SD_Switch).CornerRadius = UDim.new(1,0)
-local SD_Knob = Instance.new("Frame")
-SD_Knob.Size = UDim2.fromOffset(16,16)
-SD_Knob.Position = SaveDataEnabled and UDim2.new(1,-18,0.5,-8) or UDim2.fromOffset(2,2)
-SD_Knob.BackgroundColor3 = Color3.fromRGB(240,240,245)
-SD_Knob.Parent = SD_Switch
-Instance.new("UICorner", SD_Knob).CornerRadius = UDim.new(1,0)
-
-local function UpdateSaveDataVisual()
-	SD_Switch.BackgroundColor3 = SaveDataEnabled and ACCENT or Color3.fromRGB(70,70,78)
-	TweenService:Create(SD_Knob, TweenInfo.new(0.15), {Position = SaveDataEnabled and UDim2.new(1,-18,0.5,-8) or UDim2.fromOffset(2,2)}):Play()
-end
-
-SaveDataBtn.MouseButton1Click:Connect(function()
-	SaveDataEnabled = not SaveDataEnabled
-	SaveSaveData(SaveDataEnabled)
-	UpdateSaveDataVisual()
-	if SaveDataEnabled then SaveActiveToggles() else ClearSavedToggles() end
-end)
-
-local KeybindLabel = Instance.new("TextLabel")
-KeybindLabel.Size = UDim2.new(1,-40,0,16)
-KeybindLabel.Position = UDim2.new(0,20,0,200)
-KeybindLabel.BackgroundTransparency = 1
-KeybindLabel.Text = "Tecla para minimizar"
-KeybindLabel.TextXAlignment = Enum.TextXAlignment.Left
-KeybindLabel.TextColor3 = Color3.fromRGB(180,180,188)
-KeybindLabel.TextSize = 11
-KeybindLabel.Font = Enum.Font.Gotham
-KeybindLabel.Parent = SettingsPage
-
-local KeybindRow = Instance.new("Frame")
-KeybindRow.Size = UDim2.new(1,-40,0,40)
-KeybindRow.Position = UDim2.new(0,20,0,222)
-KeybindRow.BackgroundColor3 = Color3.fromRGB(18,18,23)
-KeybindRow.BorderSizePixel = 0
-KeybindRow.Parent = SettingsPage
-Instance.new("UICorner", KeybindRow).CornerRadius = UDim.new(0,12)
-local KRS = Instance.new("UIStroke", KeybindRow)
-KRS.Color = Color3.fromRGB(50,50,58)
-
-local KeybindBtn = Instance.new("TextButton")
-KeybindBtn.Size = UDim2.new(1,-20,1,-10)
-KeybindBtn.Position = UDim2.new(0,10,0,5)
-KeybindBtn.BackgroundColor3 = Color3.fromRGB(28,28,35)
-KeybindBtn.Text = "M"
-KeybindBtn.TextColor3 = Color3.fromRGB(225,225,232)
-KeybindBtn.TextSize = 12
-KeybindBtn.Font = Enum.Font.GothamBold
-KeybindBtn.AutoButtonColor = false
-KeybindBtn.Parent = KeybindRow
-Instance.new("UICorner", KeybindBtn).CornerRadius = UDim.new(0,8)
-local kbStroke = Instance.new("UIStroke", KeybindBtn)
-kbStroke.Color = Color3.fromRGB(255,255,255)
-kbStroke.Thickness = 1
-kbStroke.Transparency = 0.82
-kbStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-
-local CurrentKey = Enum.KeyCode.M
-local listening = false
-
-KeybindBtn.MouseButton1Click:Connect(function()
-	if listening then return end
-	listening = true
-	KeybindBtn.Text = "Presiona una tecla..."
-	KeybindBtn.TextColor3 = ACCENT
-end)
-
-UserInputService.InputBegan:Connect(function(input, gp)
-	if not listening then return end
-	if gp then return end
-	if input.UserInputType == Enum.UserInputType.Keyboard then
-		CurrentKey = input.KeyCode
-		KeybindBtn.Text = tostring(CurrentKey.Name)
-		KeybindBtn.TextColor3 = Color3.fromRGB(225,225,232)
-		listening = false
-	end
-end)
-
-local Bottom = Instance.new("Frame")
-Bottom.Size = UDim2.fromOffset(460,54)
-Bottom.Position = UDim2.new(0.5,-230,1,-60)
-Bottom.BackgroundColor3 = Color3.fromRGB(18,18,22)
-Bottom.BorderSizePixel = 0
-Bottom.Visible = false
-Bottom.Parent = Content
-Instance.new("UICorner", Bottom).CornerRadius = UDim.new(0,27)
-local BS = Instance.new("UIStroke", Bottom)
-BS.Color = Color3.fromRGB(45,45,50)
-
-local NavPill = Instance.new("Frame")
-NavPill.Size = UDim2.fromOffset(76,46)
-NavPill.Position = UDim2.new(0,2,0,4)
-NavPill.BackgroundColor3 = Color3.fromRGB(255,255,255)
-NavPill.BackgroundTransparency = 0.88
-NavPill.BorderSizePixel = 0
-NavPill.ZIndex = 2
-NavPill.Parent = Bottom
-Instance.new("UICorner", NavPill).CornerRadius = UDim.new(1,0)
-
-local function MakeNavButton(imageId, label, x, w)
-	local b = Instance.new("TextButton")
-	b.Size = UDim2.fromOffset(w,46)
-	b.Position = UDim2.new(0,x,0,4)
-	b.BackgroundTransparency = 1
-	b.Text = ""
-	b.AutoButtonColor = false
-	b.ZIndex = 4
-	b.Parent = Bottom
-	Instance.new("UICorner", b).CornerRadius = UDim.new(0,12)
-	local icon = Instance.new("ImageLabel")
-	icon.Size = UDim2.fromOffset(22,22)
-	icon.Position = UDim2.new(0.5,-11,0,6)
-	icon.BackgroundTransparency = 1
-	icon.Image = "rbxassetid://"..imageId
-	icon.ZIndex = 7
-	icon.Parent = b
-	local lbl = Instance.new("TextLabel")
-	lbl.Size = UDim2.new(1,0,0,14)
-	lbl.Position = UDim2.new(0,0,0,30)
-	lbl.BackgroundTransparency = 1
-	lbl.Text = label
-	lbl.TextXAlignment = Enum.TextXAlignment.Center
-	lbl.TextColor3 = Color3.fromRGB(180,180,190)
-	lbl.TextSize = 10
-	lbl.Font = Enum.Font.GothamMedium
-	lbl.ZIndex = 7
-	lbl.Parent = b
-	return b
-end
-
-local HomeButton = MakeNavButton("135130950196086", "Home", 2, 76)
-local ScriptsButton = MakeNavButton("79949598410209", "Scripts", 78, 76)
-local FlingButton = MakeNavButton("101363781360377", "Fling", 154, 76)
-local SkysButton = MakeNavButton("107588676615037", "Skys", 230, 76)
-local AnimationsButton = MakeNavButton("135130950196086", "Anims", 306, 76)
-local SettingsButton = MakeNavButton("114349145444051", "Settings", 382, 76)
-
-local function MoveNavPill(x, w)
-	TweenService:Create(NavPill, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, x, 0, 4), Size = UDim2.fromOffset(w, 46)}):Play()
-end
-
-local Watermark = Instance.new("TextLabel")
-Watermark.Size = UDim2.new(1,-20,0,14)
-Watermark.Position = UDim2.new(0,10,1,-72)
-Watermark.BackgroundTransparency = 1
-Watermark.Text = "Panel creado por Sam"
-Watermark.TextXAlignment = Enum.TextXAlignment.Center
-Watermark.TextColor3 = Color3.fromRGB(110,110,118)
-Watermark.TextSize = 10
-Watermark.Font = Enum.Font.Gotham
-Watermark.TextTransparency = 0.4
-Watermark.ZIndex = 15
-Watermark.Parent = Content
-
-local NotifPanel = Instance.new("Frame")
-NotifPanel.Size = UDim2.fromOffset(280,200)
-NotifPanel.Position = UDim2.new(0,-300,0,52)
-NotifPanel.BackgroundColor3 = Color3.fromRGB(16,16,21)
-NotifPanel.BorderSizePixel = 0
-NotifPanel.ZIndex = 20
-NotifPanel.Visible = false
-NotifPanel.Parent = Main
-Instance.new("UICorner", NotifPanel).CornerRadius = UDim.new(0,12)
-local NPS = Instance.new("UIStroke", NotifPanel)
-NPS.Color = Color3.fromRGB(50,50,58)
-local NotifPanelTitle = Instance.new("TextLabel")
-NotifPanelTitle.Size = UDim2.new(1,-24,0,28)
-NotifPanelTitle.Position = UDim2.new(0,12,0,8)
-NotifPanelTitle.BackgroundTransparency = 1
-NotifPanelTitle.Text = "Notificaciones"
-NotifPanelTitle.TextXAlignment = Enum.TextXAlignment.Left
-NotifPanelTitle.TextColor3 = Color3.fromRGB(245,245,247)
-NotifPanelTitle.TextSize = 14
-NotifPanelTitle.Font = Enum.Font.GothamBold
-NotifPanelTitle.ZIndex = 21
-NotifPanelTitle.Parent = NotifPanel
-local NotifPanelLine = Instance.new("Frame")
-NotifPanelLine.Size = UDim2.new(1,-24,0,1)
-NotifPanelLine.Position = UDim2.new(0,12,0,40)
-NotifPanelLine.BackgroundColor3 = Color3.fromRGB(40,40,46)
-NotifPanelLine.BorderSizePixel = 0
-NotifPanelLine.ZIndex = 21
-NotifPanelLine.Parent = NotifPanel
-local NotifEntry = Instance.new("Frame")
-NotifEntry.Size = UDim2.new(1,-24,0,120)
-NotifEntry.Position = UDim2.new(0,12,0,48)
-NotifEntry.BackgroundColor3 = Color3.fromRGB(22,22,28)
-NotifEntry.BorderSizePixel = 0
-NotifEntry.ZIndex = 21
-NotifEntry.Parent = NotifPanel
-Instance.new("UICorner", NotifEntry).CornerRadius = UDim.new(0,8)
-local NES = Instance.new("UIStroke", NotifEntry)
-NES.Color = Color3.fromRGB(60,60,70)
-local NotifEntryTitle = Instance.new("TextLabel")
-NotifEntryTitle.Size = UDim2.new(1,-20,0,20)
-NotifEntryTitle.Position = UDim2.new(0,10,0,8)
-NotifEntryTitle.BackgroundTransparency = 1
-NotifEntryTitle.Text = "Nueva Actualización!"
-NotifEntryTitle.TextXAlignment = Enum.TextXAlignment.Left
-NotifEntryTitle.TextColor3 = Color3.fromRGB(245,245,247)
-NotifEntryTitle.TextSize = 12
-NotifEntryTitle.Font = Enum.Font.GothamBold
-NotifEntryTitle.ZIndex = 22
-NotifEntryTitle.Parent = NotifEntry
-local NotifEntryText = Instance.new("TextLabel")
-NotifEntryText.Size = UDim2.new(1,-20,0,50)
-NotifEntryText.Position = UDim2.new(0,10,0,30)
-NotifEntryText.BackgroundTransparency = 1
-NotifEntryText.Text = "La próxima actualización traerá más de 20 skyboxes nuevos!"
-NotifEntryText.TextXAlignment = Enum.TextXAlignment.Left
-NotifEntryText.TextYAlignment = Enum.TextYAlignment.Top
-NotifEntryText.TextWrapped = true
-NotifEntryText.TextColor3 = Color3.fromRGB(200,200,208)
-NotifEntryText.TextSize = 11
-NotifEntryText.Font = Enum.Font.Gotham
-NotifEntryText.ZIndex = 22
-NotifEntryText.Parent = NotifEntry
-local ReadBtn = Instance.new("TextButton")
-ReadBtn.Size = UDim2.new(1,-20,0,24)
-ReadBtn.Position = UDim2.new(0,10,1,-32)
-ReadBtn.BackgroundColor3 = Color3.fromRGB(40,40,48)
-ReadBtn.Text = "Leído"
-ReadBtn.TextColor3 = Color3.fromRGB(225,225,232)
-ReadBtn.TextSize = 11
-ReadBtn.Font = Enum.Font.GothamBold
-ReadBtn.AutoButtonColor = false
-ReadBtn.ZIndex = 22
-ReadBtn.Parent = NotifEntry
-Instance.new("UICorner", ReadBtn).CornerRadius = UDim.new(0,6)
-
-local Reopen = Instance.new("TextButton")
-Reopen.Size = UDim2.fromOffset(52,52)
-Reopen.Position = UDim2.new(0,16,1,-68)
-Reopen.BackgroundColor3 = Color3.fromRGB(255,255,255)
-Reopen.Text = ""
-Reopen.AutoButtonColor = false
-Reopen.Visible = false
-Reopen.Active = true
-Reopen.Parent = GUI
-Instance.new("UICorner", Reopen).CornerRadius = UDim.new(1,0)
-local RS = Instance.new("UIStroke", Reopen)
-RS.Color = Color3.fromRGB(220,220,220)
-local ReopenIcon = Instance.new("ImageLabel")
-ReopenIcon.Size = UDim2.new(1,-16,1,-16)
-ReopenIcon.Position = UDim2.new(0,8,0,8)
-ReopenIcon.BackgroundTransparency = 1
-ReopenIcon.Image = "rbxassetid://92472718379692"
-ReopenIcon.Parent = Reopen
-local reopenSavedPos = UDim2.new(0,16,1,-68)
-
-local unlocked = false
-local minimized = false
-local isMaximized = false
-local notifOpen = false
-local animating = false
-local currentPageName = "Home"
-local NormalSize = UDim2.new(0,480,0,300)
-local NormalPosition = UDim2.fromScale(0.5,0.5)
-local PreMaxSize = nil
-local PreMaxPos = nil
-local UpdateButtonStyle
-
-local function UpdateDeviceSize()
-	local cam = workspace.CurrentCamera
-	if not cam then UIScale.Scale = 1 return end
-	local vp = cam.ViewportSize
-	if not vp or vp.X < 100 or vp.Y < 100 then UIScale.Scale = 1 return end
-	if isMaximized then
-		Main.Size = UDim2.fromOffset(math.max(vp.X - 30, 480), math.max(vp.Y - 30, 300))
-		UIScale.Scale = 1
-		return
-	end
-	Main.Size = UDim2.new(0,480,0,300)
-	local s = math.min((vp.X-20)/480, (vp.Y-40)/300)
-	s = math.clamp(s, 0.5, 1)
-	UIScale.Scale = s
-	NormalSize = Main.Size
-	NormalPosition = Main.Position
-end
-UpdateDeviceSize()
-local Camera = workspace.CurrentCamera
-if Camera then Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function() pcall(UpdateDeviceSize) end) end
-
-task.spawn(function()
-	local ok, img = pcall(function()
-		return Players:GetUserThumbnailAsync(Player.UserId, Enum.ThumbnailType.AvatarBust, Enum.ThumbnailSize.Size420x420)
-	end)
-	if ok and img then
-		Profile.Image = img
-		BigProfile.Image = img
-	end
-end)
-
-local function colorOwnerRainbow() return Color3.fromHSV((os.clock() * 0.25) % 1, 1, 1) end
-local function colorTesterRGB()
-	local t = (os.clock() * 0.5) % 1
-	local blue = Color3.fromRGB(0,80,255)
-	local red = Color3.fromRGB(255,0,0)
-	if t < 0.5 then return blue:Lerp(red, t*2)
-	else return red:Lerp(blue, (t-0.5)*2) end
-end
-
-local rankAccum = 0
-RunService.Heartbeat:Connect(function(dt)
-	if not Rank.Visible then return end
-	local r = getRank(Player.Name)
-	if r ~= "OWNER" and r ~= "TESTER" then return end
-	rankAccum += dt
-	if rankAccum < 0.05 then return end
-	rankAccum = 0
-	if r == "OWNER" then Rank.TextColor3 = colorOwnerRainbow()
-	elseif r == "TESTER" then Rank.TextColor3 = colorTesterRGB() end
-end)
-
-local PageMap = {Home=HomePage, Scripts=ScriptsPage, Fling=FlingPage, Skys=SkysPage, Animations=AnimationsPage, Settings=SettingsPage}
-local function ResetScroll()
-	for _, p in pairs(PageMap) do p.CanvasPosition = Vector2.new(0,0) end
-	LoginPage.CanvasPosition = Vector2.new(0,0)
-end
-
-local function SwitchPage(target, fromRight)
-	if animating or currentPageName == target or not unlocked then return end
-	local FromPage = PageMap[currentPageName]
-	local ToPage = PageMap[target]
-	if not FromPage or not ToPage then return end
-	animating = true
-	local Dir = fromRight and 1 or -1
-	local Info = TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-	ToPage.Position = UDim2.new(Dir,0,0,0)
-	ToPage.Visible = true
-	TweenService:Create(FromPage, Info, {Position=UDim2.new(-Dir,0,0,0)}):Play()
-	TweenService:Create(ToPage, Info, {Position=UDim2.new(0,0,0,0)}):Play()
-	task.wait(0.15)
-	FromPage.Visible = false
-	FromPage.Position = UDim2.new(0,0,0,0)
-	currentPageName = target
-	animating = false
-	ResetScroll()
-end
-
-local _onLoginCallbacks = {}
-
+-- ============================================================
+-- LOGIN
+-- ============================================================
 local function LoginSuccess()
-	if unlocked then return end
-	unlocked = true
+	if State.unlocked then return end
+	State.unlocked = true
 	local FadeInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	local function Fade(o,p,t) TweenService:Create(o, FadeInfo, {[p]=t}):Play() end
-	Fade(Profile, "ImageTransparency", 1)
-	Fade(Profile, "BackgroundTransparency", 1)
-	Fade(ProfileStroke, "Transparency", 1)
-	Fade(Welcome, "TextTransparency", 1)
-	Fade(Subtitle, "TextTransparency", 1)
-	Fade(Password, "BackgroundTransparency", 1)
-	Fade(Password, "TextTransparency", 1)
-	Fade(PassStroke, "Transparency", 1)
-	Fade(Enter, "BackgroundTransparency", 1)
-	Fade(Enter, "TextTransparency", 1)
-	Fade(EnterStroke, "Transparency", 1)
-	Fade(Error, "TextTransparency", 1)
+	local function Fade(o,p,t) S.Tween:Create(o, FadeInfo, {[p]=t}):Play() end
+	Fade(UI.Login.Profile, "ImageTransparency", 1)
+	Fade(UI.Login.Profile, "BackgroundTransparency", 1)
+	Fade(UI.Login.ProfileStroke, "Transparency", 1)
+	Fade(UI.Login.Welcome, "TextTransparency", 1)
+	Fade(UI.Login.Subtitle, "TextTransparency", 1)
+	Fade(UI.Login.Password, "BackgroundTransparency", 1)
+	Fade(UI.Login.Password, "TextTransparency", 1)
+	Fade(UI.Login.PassStroke, "Transparency", 1)
+	Fade(UI.Login.Enter, "BackgroundTransparency", 1)
+	Fade(UI.Login.Enter, "TextTransparency", 1)
+	Fade(UI.Login.EnterStroke, "Transparency", 1)
+	Fade(UI.Login.Error, "TextTransparency", 1)
 	task.wait(0.32)
-	LoginPage.Visible = false
-	UserName.Text = "@"..Player.Name
-	local r = getRank(Player.Name)
+	UI.Login.Page.Visible = false
+	UI.Home_UserName.Text = "@"..S.Player.Name
+	local r = getRank(S.Player.Name)
 	if r then
-		Rank.Text = r
-		if r == "OWNER" then Rank.TextColor3 = Color3.fromRGB(255,80,80)
-		elseif r == "TESTER" then Rank.TextColor3 = Color3.fromRGB(0,80,255)
-		else Rank.TextColor3 = ACCENT end
-		Rank.Visible = true
+		UI.Home_Rank.Text = r
+		if r == "OWNER" then UI.Home_Rank.TextColor3 = Color3.fromRGB(255,80,80)
+		elseif r == "TESTER" then UI.Home_Rank.TextColor3 = Color3.fromRGB(0,80,255)
+		else UI.Home_Rank.TextColor3 = UI.ACCENT end
+		UI.Home_Rank.Visible = true
 	end
-	Pages.Visible = true
-	Bottom.Visible = true
-	HomePage.Visible = true
-	ScriptsPage.Visible = false
-	FlingPage.Visible = false
-	SkysPage.Visible = false
-	AnimationsPage.Visible = false
-	SettingsPage.Visible = false
-	currentPageName = "Home"
-	ResetScroll()
-	if not activeTab then SelectTab(MainScriptTab, MainScriptBtn) end
-	BigProfile.ImageTransparency = 1
-	UserName.TextTransparency = 1
-	Status.TextTransparency = 1
-	Rank.TextTransparency = 1
-	for _, o in ipairs({BigProfile, UserName, Status, Rank}) do
+	UI.Pages.Container.Visible = true
+	UI.Bottom.Visible = true
+	UI.Pages.Home.Visible = true
+	UI.Pages.Scripts.Visible = false
+	UI.Pages.Fling.Visible = false
+	UI.Pages.Skys.Visible = false
+	UI.Pages.Animations.Visible = false
+	UI.Pages.Settings.Visible = false
+	State.currentPageName = "Home"
+	for _, p in pairs(UI.Pages) do
+		if p ~= UI.Pages.Container then p.CanvasPosition = Vector2.new(0,0) end
+	end
+	UI.Login.Page.CanvasPosition = Vector2.new(0,0)
+	if not State.activeTab then UI.SelectTab(UI.Tabs.MainScript, UI.Scripts_BtnMain) end
+	UI.Home_BigProfile.ImageTransparency = 1
+	UI.Home_UserName.TextTransparency = 1
+	UI.Home_Status.TextTransparency = 1
+	UI.Home_Rank.TextTransparency = 1
+	for _, o in ipairs({UI.Home_BigProfile, UI.Home_UserName, UI.Home_Status, UI.Home_Rank}) do
 		local props = {}
-		if o:IsA("TextLabel") then props.TextTransparency = 0
-		else props.ImageTransparency = 0 end
-		TweenService:Create(o, TweenInfo.new(0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), props):Play()
+		if o:IsA("TextLabel") then props.TextTransparency = 0 else props.ImageTransparency = 0 end
+		S.Tween:Create(o, TweenInfo.new(0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), props):Play()
 	end
 	task.defer(function() pcall(RefreshMostUsed) end)
 	if SaveDataEnabled then
 		task.spawn(function()
 			task.wait(1.5)
-			local saved = LoadActiveToggles()
+			local saved = Storage.LoadActiveToggles()
 			if not saved or #saved == 0 then return end
 			local function applyAll()
 				for _, name in ipairs(saved) do
@@ -1432,9 +1052,9 @@ local function LoginSuccess()
 					if reg then pcall(function() reg.setActive(true) end) end
 				end
 			end
-			if not Player.Character then
+			if not S.Player.Character then
 				local conn
-				conn = Player.CharacterAdded:Connect(function()
+				conn = S.Player.CharacterAdded:Connect(function()
 					if conn then conn:Disconnect() conn = nil end
 					task.wait(1)
 					applyAll()
@@ -1445,194 +1065,309 @@ local function LoginSuccess()
 			end
 		end)
 	end
-	for _, fn in ipairs(_onLoginCallbacks) do
+	for _, fn in ipairs(OnLoginCallbacks) do
 		task.spawn(function() pcall(fn) end)
 	end
 end
 
 local function TryLogin()
-	if unlocked then return end
-	if not isWhitelisted(Player.Name) then Error.Text = "No estás en la whitelist" return end
-	if Password.Text == "sam2027" then
-		Error.Text = ""
-		SaveSession()
+	if State.unlocked then return end
+	if not isWhitelisted(S.Player.Name) then UI.Login.Error.Text = "No estás en la whitelist" return end
+	if UI.Login.Password.Text == "sam2027" then
+		UI.Login.Error.Text = ""
+		Storage.SaveSession()
 		LoginSuccess()
 	else
-		Error.Text = "Contraseña incorrecta"
-		local orig = Password.Position
-		local T1 = TweenService:Create(Password, TweenInfo.new(0.05), {Position=orig+UDim2.fromOffset(7,0)})
-		local T2 = TweenService:Create(Password, TweenInfo.new(0.05), {Position=orig-UDim2.fromOffset(7,0)})
+		UI.Login.Error.Text = "Contraseña incorrecta"
+		local orig = UI.Login.Password.Position
+		local T1 = S.Tween:Create(UI.Login.Password, TweenInfo.new(0.05), {Position=orig+UDim2.fromOffset(7,0)})
+		local T2 = S.Tween:Create(UI.Login.Password, TweenInfo.new(0.05), {Position=orig-UDim2.fromOffset(7,0)})
 		T1:Play(); T1.Completed:Wait()
 		T2:Play(); T2.Completed:Wait()
-		Password.Position = orig
-		Password.Text = ""
+		UI.Login.Password.Position = orig
+		UI.Login.Password.Text = ""
 	end
 end
-Enter.MouseButton1Click:Connect(TryLogin)
-Password.FocusLost:Connect(function(e) if e then TryLogin() end end)
+UI.Login.Enter.MouseButton1Click:Connect(TryLogin)
+UI.Login.Password.FocusLost:Connect(function(e) if e then TryLogin() end end)
 
-local notifRead = LoadNotifRead()
-if notifRead then
-	NotificationDot.Visible = false
-	ReadBtn.Text = "Leído ✓"
-	ReadBtn.BackgroundColor3 = Color3.fromRGB(35,90,50)
+-- ============================================================
+-- KEYBIND
+-- ============================================================
+UI.KeybindBtn.MouseButton1Click:Connect(function()
+	if State.listening then return end
+	State.listening = true
+	UI.KeybindBtn.Text = "Presiona una tecla..."
+	UI.KeybindBtn.TextColor3 = UI.ACCENT
+end)
+S.Input.InputBegan:Connect(function(input, gp)
+	if not State.listening then return end
+	if gp then return end
+	if input.UserInputType == Enum.UserInputType.Keyboard then
+		State.CurrentKey = input.KeyCode
+		UI.KeybindBtn.Text = tostring(State.CurrentKey.Name)
+		UI.KeybindBtn.TextColor3 = Color3.fromRGB(225,225,232)
+		State.listening = false
+	end
+end)
+
+-- Notif
+if State.notifRead then
+	UI.NotifDot.Visible = false
+	UI.NotifReadBtn.Text = "Leído ✓"
+	UI.NotifReadBtn.BackgroundColor3 = Color3.fromRGB(35,90,50)
 end
-
 local function CloseNotifications()
-	notifOpen = false
-	NotifPanel.Position = UDim2.new(0,-300,0,52)
-	NotifPanel.Visible = false
+	State.notifOpen = false
+	UI.NotifPanel.Position = UDim2.new(0,-300,0,52)
+	UI.NotifPanel.Visible = false
 end
-Notification.MouseButton1Click:Connect(function()
-	if notifOpen then
-		local tw = TweenService:Create(NotifPanel, TweenInfo.new(0.28), {Position=UDim2.new(0,-300,0,52)})
-		tw:Play()
-		notifOpen = false
-		tw.Completed:Connect(function() if not notifOpen then NotifPanel.Visible = false end end)
+UI.NotifBtn.MouseButton1Click:Connect(function()
+	if State.notifOpen then
+		local tw = S.Tween:Create(UI.NotifPanel, TweenInfo.new(0.28), {Position=UDim2.new(0,-300,0,52)})
+		tw:Play(); State.notifOpen = false
+		tw.Completed:Connect(function() if not State.notifOpen then UI.NotifPanel.Visible = false end end)
 	else
-		notifOpen = true
-		NotifPanel.Visible = true
-		NotifPanel.Position = UDim2.new(0,-300,0,52)
-		TweenService:Create(NotifPanel, TweenInfo.new(0.3), {Position=UDim2.new(0,12,0,52)}):Play()
+		State.notifOpen = true
+		UI.NotifPanel.Visible = true
+		UI.NotifPanel.Position = UDim2.new(0,-300,0,52)
+		S.Tween:Create(UI.NotifPanel, TweenInfo.new(0.3), {Position=UDim2.new(0,12,0,52)}):Play()
 	end
 end)
-ReadBtn.MouseButton1Click:Connect(function()
-	if notifRead then return end
-	notifRead = true
-	SaveNotifRead()
-	NotificationDot.Visible = false
-	ReadBtn.Text = "Leído ✓"
-	ReadBtn.BackgroundColor3 = Color3.fromRGB(35,90,50)
+UI.NotifReadBtn.MouseButton1Click:Connect(function()
+	if State.notifRead then return end
+	State.notifRead = true
+	Storage.SaveNotifRead()
+	UI.NotifDot.Visible = false
+	UI.NotifReadBtn.Text = "Leído ✓"
+	UI.NotifReadBtn.BackgroundColor3 = Color3.fromRGB(35,90,50)
 end)
 
+-- Save data btn
+local function UpdateSaveDataVisual()
+	UI.SaveData_Switch.BackgroundColor3 = SaveDataEnabled and UI.ACCENT or Color3.fromRGB(70,70,78)
+	S.Tween:Create(UI.SaveData_Knob, TweenInfo.new(0.15), {Position = SaveDataEnabled and UDim2.new(1,-18,0.5,-8) or UDim2.fromOffset(2,2)}):Play()
+end
+S.PlayerGui = UI.GUI -- Placeholder to avoid unused
+-- Button style
+local UpdateButtonStyle
 UpdateButtonStyle = function()
-	if buttonStyle == "New" then
-		CloseButton.Visible = true
-		MinimizeButton.Visible = true
-		MaximizeButton.Visible = true
-		ClassicClose.Visible = false
-		ClassicMin.Visible = false
-		Notification.Position = UDim2.new(1,-46,0,9)
-		TweenService:Create(NewOption, TweenInfo.new(0.2), {BackgroundColor3=ACCENT, TextColor3=Color3.fromRGB(20,20,24)}):Play()
-		TweenService:Create(ClassicOption, TweenInfo.new(0.2), {BackgroundColor3=Color3.fromRGB(30,30,36), TextColor3=Color3.fromRGB(200,200,208)}):Play()
+	if State.buttonStyle == "New" then
+		UI.CloseBtn.Visible = true; UI.MinBtn.Visible = true; UI.MaxBtn.Visible = true
+		UI.ClassicClose.Visible = false; UI.ClassicMin.Visible = false
+		UI.NotifBtn.Position = UDim2.new(1,-46,0,9)
+		S.Tween:Create(UI.Settings_NewOpt, TweenInfo.new(0.2), {BackgroundColor3=UI.ACCENT, TextColor3=Color3.fromRGB(20,20,24)}):Play()
+		S.Tween:Create(UI.Settings_ClassicOpt, TweenInfo.new(0.2), {BackgroundColor3=Color3.fromRGB(30,30,36), TextColor3=Color3.fromRGB(200,200,208)}):Play()
 	else
-		CloseButton.Visible = false
-		MinimizeButton.Visible = false
-		MaximizeButton.Visible = false
-		ClassicClose.Visible = true
-		ClassicMin.Visible = true
-		Notification.Position = UDim2.new(0,16,0,9)
-		TweenService:Create(ClassicOption, TweenInfo.new(0.2), {BackgroundColor3=ACCENT, TextColor3=Color3.fromRGB(20,20,24)}):Play()
-		TweenService:Create(NewOption, TweenInfo.new(0.2), {BackgroundColor3=Color3.fromRGB(30,30,36), TextColor3=Color3.fromRGB(200,200,208)}):Play()
+		UI.CloseBtn.Visible = false; UI.MinBtn.Visible = false; UI.MaxBtn.Visible = false
+		UI.ClassicClose.Visible = true; UI.ClassicMin.Visible = true
+		UI.NotifBtn.Position = UDim2.new(0,16,0,9)
+		S.Tween:Create(UI.Settings_ClassicOpt, TweenInfo.new(0.2), {BackgroundColor3=UI.ACCENT, TextColor3=Color3.fromRGB(20,20,24)}):Play()
+		S.Tween:Create(UI.Settings_NewOpt, TweenInfo.new(0.2), {BackgroundColor3=Color3.fromRGB(30,30,36), TextColor3=Color3.fromRGB(200,200,208)}):Play()
 	end
 end
 UpdateButtonStyle()
-NewOption.MouseButton1Click:Connect(function() buttonStyle = "New" UpdateButtonStyle() end)
-ClassicOption.MouseButton1Click:Connect(function() buttonStyle = "Classic" UpdateButtonStyle() end)
+UI.Settings_NewOpt.MouseButton1Click:Connect(function() State.buttonStyle = "New" UpdateButtonStyle() end)
+UI.Settings_ClassicOpt.MouseButton1Click:Connect(function() State.buttonStyle = "Classic" UpdateButtonStyle() end)
 
-HomeButton.MouseButton1Click:Connect(function() SwitchPage("Home", false) MoveNavPill(2, 76) end)
-ScriptsButton.MouseButton1Click:Connect(function() SwitchPage("Scripts", true) MoveNavPill(78, 76) end)
-FlingButton.MouseButton1Click:Connect(function() SwitchPage("Fling", true) MoveNavPill(154, 76) end)
-SkysButton.MouseButton1Click:Connect(function() SwitchPage("Skys", true) MoveNavPill(230, 76) end)
-AnimationsButton.MouseButton1Click:Connect(function() SwitchPage("Animations", true) MoveNavPill(306, 76) end)
-SettingsButton.MouseButton1Click:Connect(function() SwitchPage("Settings", true) MoveNavPill(382, 76) end)
-
-CloseButton.MouseButton1Click:Connect(function() pcall(SaveActiveToggles) GUI:Destroy() end)
-ClassicClose.MouseButton1Click:Connect(function() pcall(SaveActiveToggles) GUI:Destroy() end)
-
-local restoring = false
-local function Minimize()
-	if minimized then return end
-	minimized = true
-	NormalSize = Main.Size
-	NormalPosition = Main.Position
-	CloseNotifications()
-	TweenService:Create(UIScale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Scale=0}):Play()
-	task.wait(0.28)
-	Main.Visible = false
-	UpdateDeviceSize()
-	Reopen.Visible = true
-	Reopen.Size = UDim2.fromOffset(0,0)
-	Reopen.Position = UDim2.new(reopenSavedPos.X.Scale, reopenSavedPos.X.Offset+26, reopenSavedPos.Y.Scale, reopenSavedPos.Y.Offset-10)
-	TweenService:Create(Reopen, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size=UDim2.fromOffset(52,52), Position=reopenSavedPos}):Play()
-end
-local function Restore()
-	if restoring then return end
-	if not minimized then return end
-	restoring = true
-	minimized = false
-	TweenService:Create(Reopen, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = UDim2.fromOffset(0,0), Position = UDim2.new(reopenSavedPos.X.Scale, reopenSavedPos.X.Offset+26, reopenSavedPos.Y.Scale, reopenSavedPos.Y.Offset-10)}):Play()
-	task.wait(0.2)
-	Reopen.Visible = false
-	Main.Visible = true
-	if isMaximized then
-		local cam = workspace.CurrentCamera
-		local vp = cam and cam.ViewportSize or Vector2.new(800,600)
-		Main.Size = UDim2.fromOffset(math.max(vp.X - 30, 480), math.max(vp.Y - 30, 300))
-		Main.Position = UDim2.fromScale(0.5, 0.5)
-		UIScale.Scale = 1
-	else
-		Main.Size = NormalSize
-		Main.Position = NormalPosition
-		UIScale.Scale = 0
-	end
-	Main.Rotation = -3
-	CloseNotifications()
-	TweenService:Create(Main, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Rotation=0}):Play()
-	if not isMaximized then
-		TweenService:Create(UIScale, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale=1}):Play()
-	end
-	task.delay(0.5, function()
-		if not minimized and not isMaximized then UpdateDeviceSize() end
-		restoring = false
-	end)
-end
-MinimizeButton.MouseButton1Click:Connect(Minimize)
-ClassicMin.MouseButton1Click:Connect(Minimize)
-
-MaximizeButton.MouseButton1Click:Connect(function()
-	if minimized then return end
+local function UpdateDeviceSize()
 	local cam = workspace.CurrentCamera
-	local vp = cam and cam.ViewportSize or Vector2.new(800, 600)
-	if isMaximized then
-		isMaximized = false
-		local targetSize = PreMaxSize or UDim2.new(0, 480, 0, 300)
-		local targetPos = PreMaxPos or UDim2.fromScale(0.5, 0.5)
-		local s = math.min((vp.X-20)/480, (vp.Y-40)/300)
-		s = math.clamp(s, 0.5, 1)
-		TweenService:Create(UIScale, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Scale = s}):Play()
-		TweenService:Create(Main, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = targetSize, Position = targetPos}):Play()
-		task.delay(0.4, function()
-			if not isMaximized and not minimized then NormalSize = Main.Size NormalPosition = Main.Position end
-		end)
-	else
-		isMaximized = true
-		PreMaxSize = Main.Size
-		PreMaxPos = Main.Position
-		local maxW = math.max(vp.X - 30, 480)
-		local maxH = math.max(vp.Y - 30, 300)
-		TweenService:Create(UIScale, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Scale = 1}):Play()
-		TweenService:Create(Main, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(maxW, maxH), Position = UDim2.fromScale(0.5, 0.5)}):Play()
+	if not cam then UI.UIScale.Scale = 1 return end
+	local vp = cam.ViewportSize
+	if not vp or vp.X < 100 or vp.Y < 100 then UI.UIScale.Scale = 1 return end
+	if State.isMaximized then
+		UI.Main.Size = UDim2.fromOffset(math.max(vp.X - 30, 480), math.max(vp.Y - 30, 300))
+		UI.UIScale.Scale = 1
+		return
+	end
+	UI.Main.Size = UDim2.new(0,480,0,300)
+	local s = math.min((vp.X-20)/480, (vp.Y-40)/300)
+	s = math.clamp(s, 0.5, 1)
+	UI.UIScale.Scale = s
+	State.NormalSize = UI.Main.Size
+	State.NormalPosition = UI.Main.Position
+end
+UpdateDeviceSize()
+if workspace.CurrentCamera then
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function() pcall(UpdateDeviceSize) end)
+end
+
+task.spawn(function()
+	local ok, img = pcall(function()
+		return S.Players:GetUserThumbnailAsync(S.Player.UserId, Enum.ThumbnailType.AvatarBust, Enum.ThumbnailSize.Size420x420)
+	end)
+	if ok and img then
+		UI.Login.Profile.Image = img
+		UI.Home_BigProfile.Image = img
 	end
 end)
 
-if not UserInputService.TouchEnabled then
-	UserInputService.InputBegan:Connect(function(input, gp)
+local function colorOwnerRainbow() return Color3.fromHSV((os.clock() * 0.25) % 1, 1, 1) end
+local function colorTesterRGB()
+	local t = (os.clock() * 0.5) % 1
+	local blue = Color3.fromRGB(0,80,255)
+	local red = Color3.fromRGB(255,0,0)
+	if t < 0.5 then return blue:Lerp(red, t*2) else return red:Lerp(blue, (t-0.5)*2) end
+end
+local rankAccum = 0
+S.Run.Heartbeat:Connect(function(dt)
+	if not UI.Home_Rank.Visible then return end
+	local r = getRank(S.Player.Name)
+	if r ~= "OWNER" and r ~= "TESTER" then return end
+	rankAccum += dt
+	if rankAccum < 0.05 then return end
+	rankAccum = 0
+	if r == "OWNER" then UI.Home_Rank.TextColor3 = colorOwnerRainbow()
+	elseif r == "TESTER" then UI.Home_Rank.TextColor3 = colorTesterRGB() end
+end)
+
+-- Page map + Switch
+local PageMap = {Home=UI.Pages.Home, Scripts=UI.Pages.Scripts, Fling=UI.Pages.Fling, Skys=UI.Pages.Skys, Animations=UI.Pages.Animations, Settings=UI.Pages.Settings}
+local function ResetScroll()
+	for _, p in pairs(PageMap) do p.CanvasPosition = Vector2.new(0,0) end
+	UI.Login.Page.CanvasPosition = Vector2.new(0,0)
+end
+local function SwitchPage(target, fromRight)
+	if State.animating or State.currentPageName == target or not State.unlocked then return end
+	local FromPage = PageMap[State.currentPageName]
+	local ToPage = PageMap[target]
+	if not FromPage or not ToPage then return end
+	State.animating = true
+	local Dir = fromRight and 1 or -1
+	local Info = TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+	ToPage.Position = UDim2.new(Dir,0,0,0); ToPage.Visible = true
+	S.Tween:Create(FromPage, Info, {Position=UDim2.new(-Dir,0,0,0)}):Play()
+	S.Tween:Create(ToPage, Info, {Position=UDim2.new(0,0,0,0)}):Play()
+	task.wait(0.15)
+	FromPage.Visible = false; FromPage.Position = UDim2.new(0,0,0,0)
+	State.currentPageName = target; State.animating = false
+	ResetScroll()
+end
+UI.SwitchPage = SwitchPage
+
+local function MoveNavPill(x, w)
+	S.Tween:Create(UI.NavPill, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, x, 0, 4), Size = UDim2.fromOffset(w, 46)}):Play()
+end
+UI.NavHome.MouseButton1Click:Connect(function() SwitchPage("Home", false) MoveNavPill(2, 76) end)
+UI.NavScripts.MouseButton1Click:Connect(function() SwitchPage("Scripts", true) MoveNavPill(78, 76) end)
+UI.NavFling.MouseButton1Click:Connect(function() SwitchPage("Fling", true) MoveNavPill(154, 76) end)
+UI.NavSkys.MouseButton1Click:Connect(function() SwitchPage("Skys", true) MoveNavPill(230, 76) end)
+UI.NavAnims.MouseButton1Click:Connect(function() SwitchPage("Animations", true) MoveNavPill(306, 76) end)
+UI.NavSettings.MouseButton1Click:Connect(function() SwitchPage("Settings", true) MoveNavPill(382, 76) end)
+
+local function SaveActiveTogglesGlobal()
+	if not SaveDataEnabled then return end
+	local activeList = {}
+	for name, reg in pairs(ToggleRegistry) do
+		if reg.getActive() then table.insert(activeList, name) end
+	end
+	pcall(function() if writefile then writefile("wb_saved_toggles.json", S.Http:JSONEncode(activeList)) end end)
+end
+
+UI.CloseBtn.MouseButton1Click:Connect(function() pcall(SaveActiveTogglesGlobal) UI.GUI:Destroy() end)
+UI.ClassicClose.MouseButton1Click:Connect(function() pcall(SaveActiveTogglesGlobal) UI.GUI:Destroy() end)
+
+-- Save data button connect
+UI.SaveData_Switch.Parent.MouseButton1Click:Connect(function()
+	SaveDataEnabled = not SaveDataEnabled
+	Storage.SaveSaveData(SaveDataEnabled)
+	UpdateSaveDataVisual()
+	if SaveDataEnabled then SaveActiveTogglesGlobal() else pcall(function() if writefile then writefile("wb_saved_toggles.json", "[]") end end) end
+end)
+
+-- Minimize / Restore / Maximize
+local restoring = false
+local function Minimize()
+	if State.minimized then return end
+	State.minimized = true
+	State.NormalSize = UI.Main.Size
+	State.NormalPosition = UI.Main.Position
+	CloseNotifications()
+	S.Tween:Create(UI.UIScale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Scale=0}):Play()
+	task.wait(0.28)
+	UI.Main.Visible = false
+	UpdateDeviceSize()
+	UI.Reopen.Visible = true
+	UI.Reopen.Size = UDim2.fromOffset(0,0)
+	UI.Reopen.Position = UDim2.new(UI.ReopenPos.X.Scale, UI.ReopenPos.X.Offset+26, UI.ReopenPos.Y.Scale, UI.ReopenPos.Y.Offset-10)
+	S.Tween:Create(UI.Reopen, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size=UDim2.fromOffset(52,52), Position=UI.ReopenPos}):Play()
+end
+local function Restore()
+	if restoring then return end
+	if not State.minimized then return end
+	restoring = true
+	State.minimized = false
+	S.Tween:Create(UI.Reopen, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = UDim2.fromOffset(0,0), Position = UDim2.new(UI.ReopenPos.X.Scale, UI.ReopenPos.X.Offset+26, UI.ReopenPos.Y.Scale, UI.ReopenPos.Y.Offset-10)}):Play()
+	task.wait(0.2)
+	UI.Reopen.Visible = false
+	UI.Main.Visible = true
+	if State.isMaximized then
+		local cam = workspace.CurrentCamera
+		local vp = cam and cam.ViewportSize or Vector2.new(800,600)
+		UI.Main.Size = UDim2.fromOffset(math.max(vp.X - 30, 480), math.max(vp.Y - 30, 300))
+		UI.Main.Position = UDim2.fromScale(0.5, 0.5)
+		UI.UIScale.Scale = 1
+	else
+		UI.Main.Size = State.NormalSize
+		UI.Main.Position = State.NormalPosition
+		UI.UIScale.Scale = 0
+	end
+	UI.Main.Rotation = -3
+	CloseNotifications()
+	S.Tween:Create(UI.Main, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Rotation=0}):Play()
+	if not State.isMaximized then
+		S.Tween:Create(UI.UIScale, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale=1}):Play()
+	end
+	task.delay(0.5, function()
+		if not State.minimized and not State.isMaximized then UpdateDeviceSize() end
+		restoring = false
+	end)
+end
+UI.MinBtn.MouseButton1Click:Connect(Minimize)
+UI.ClassicMin.MouseButton1Click:Connect(Minimize)
+UI.MaxBtn.MouseButton1Click:Connect(function()
+	if State.minimized then return end
+	local cam = workspace.CurrentCamera
+	local vp = cam and cam.ViewportSize or Vector2.new(800, 600)
+	if State.isMaximized then
+		State.isMaximized = false
+		local targetSize = State.PreMaxSize or UDim2.new(0, 480, 0, 300)
+		local targetPos = State.PreMaxPos or UDim2.fromScale(0.5, 0.5)
+		local s = math.min((vp.X-20)/480, (vp.Y-40)/300)
+		s = math.clamp(s, 0.5, 1)
+		S.Tween:Create(UI.UIScale, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Scale = s}):Play()
+		S.Tween:Create(UI.Main, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = targetSize, Position = targetPos}):Play()
+		task.delay(0.4, function()
+			if not State.isMaximized and not State.minimized then State.NormalSize = UI.Main.Size State.NormalPosition = UI.Main.Position end
+		end)
+	else
+		State.isMaximized = true
+		State.PreMaxSize = UI.Main.Size
+		State.PreMaxPos = UI.Main.Position
+		local maxW = math.max(vp.X - 30, 480)
+		local maxH = math.max(vp.Y - 30, 300)
+		S.Tween:Create(UI.UIScale, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Scale = 1}):Play()
+		S.Tween:Create(UI.Main, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(maxW, maxH), Position = UDim2.fromScale(0.5, 0.5)}):Play()
+	end
+end)
+
+-- Keybind minimize
+if not S.Input.TouchEnabled then
+	S.Input.InputBegan:Connect(function(input, gp)
 		if gp then return end
-		if not unlocked then return end
-		if input.KeyCode == CurrentKey then
-			if minimized then Restore() else Minimize() end
+		if not State.unlocked then return end
+		if input.KeyCode == State.CurrentKey then
+			if State.minimized then Restore() else Minimize() end
 		end
 	end)
 end
 
+-- Drags
 local reopenDragging, reopenMoved, reopenDragStart, reopenStartPos = false, false, nil, nil
-Reopen.InputBegan:Connect(function(input)
+UI.Reopen.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		reopenDragging = true
-		reopenMoved = false
-		reopenDragStart = input.Position
-		reopenStartPos = Reopen.Position
+		reopenDragging = true; reopenMoved = false
+		reopenDragStart = input.Position; reopenStartPos = UI.Reopen.Position
 		local conn
 		conn = input.Changed:Connect(function()
 			if input.UserInputState == Enum.UserInputState.End then
@@ -1643,23 +1378,22 @@ Reopen.InputBegan:Connect(function(input)
 		end)
 	end
 end)
-UserInputService.InputChanged:Connect(function(input)
+S.Input.InputChanged:Connect(function(input)
 	if not reopenDragging then return end
 	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
 		local delta = input.Position - reopenDragStart
 		if math.abs(delta.X) > 3 or math.abs(delta.Y) > 3 then reopenMoved = true end
 		local newPos = UDim2.new(reopenStartPos.X.Scale, reopenStartPos.X.Offset+delta.X, reopenStartPos.Y.Scale, reopenStartPos.Y.Offset+delta.Y)
-		Reopen.Position = newPos
-		reopenSavedPos = newPos
+		UI.Reopen.Position = newPos
+		UI.ReopenPos = newPos
 	end
 end)
 
 local dragging, dragStart, startPos, dragConn = false, nil, nil, nil
-Top.InputBegan:Connect(function(input)
+UI.Top.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 		dragging = true
-		dragStart = input.Position
-		startPos = Main.Position
+		dragStart = input.Position; startPos = UI.Main.Position
 		if dragConn then dragConn:Disconnect() end
 		dragConn = input.Changed:Connect(function()
 			if input.UserInputState == Enum.UserInputState.End then
@@ -1669,56 +1403,57 @@ Top.InputBegan:Connect(function(input)
 		end)
 	end
 end)
-UserInputService.InputChanged:Connect(function(input)
+S.Input.InputChanged:Connect(function(input)
 	if not dragging then return end
 	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
 		local delta = input.Position - dragStart
-		Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset+delta.X, startPos.Y.Scale, startPos.Y.Offset+delta.Y)
-		if not isMaximized then NormalPosition = Main.Position end
+		UI.Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset+delta.X, startPos.Y.Scale, startPos.Y.Offset+delta.Y)
+		if not State.isMaximized then State.NormalPosition = UI.Main.Position end
 	end
 end)
+
+-- Auto login
+if Storage.HasSession() and isWhitelisted(S.Player.Name) then
+	task.defer(function()
+		if UI.GUI.Parent then LoginSuccess() end
+	end)
+end
 
 -- ============================================================
 -- API
 -- ============================================================
 local Library = {
-	GUI = GUI,
-	Window = Main,
-	Content = Content,
-	ACCENT = ACCENT,
+	GUI = UI.GUI,
+	Window = UI.Main,
+	Content = UI.Content,
+	ACCENT = UI.ACCENT,
 	WHITE = WHITE,
 	Pages = {
-		Home = HomePage, Scripts = ScriptsPage,
-		Fling = FlingPage, Skys = SkysPage,
-		Animations = AnimationsPage, Settings = SettingsPage,
+		Home = UI.Pages.Home, Scripts = UI.Pages.Scripts,
+		Fling = UI.Pages.Fling, Skys = UI.Pages.Skys,
+		Animations = UI.Pages.Animations, Settings = UI.Pages.Settings,
 	},
-	Tabs = { MainScript = MainScriptTab, Extra = ExtraTab },
+	Tabs = { MainScript = UI.Tabs.MainScript, Extra = UI.Tabs.Extra },
 	Services = {
-		Players = Players, Player = Player, PlayerGui = PlayerGui,
-		TweenService = TweenService, UserInputService = UserInputService,
-		RunService = RunService, HttpService = HttpService,
-		Lighting = Lighting, SoundService = SoundService,
-		ReplicatedStorage = ReplicatedStorage, Debris = Debris,
-		CoreGui = CoreGui, Workspace = workspace,
+		Players = S.Players, Player = S.Player, PlayerGui = S.PlayerGui,
+		TweenService = S.Tween, UserInputService = S.Input,
+		RunService = S.Run, HttpService = S.Http,
+		Lighting = S.Lighting, SoundService = S.Sound,
+		ReplicatedStorage = S.RepStorage, Debris = S.Debris,
+		CoreGui = S.CoreGui, Workspace = workspace,
 	},
 	CreateToggle = CreateToggle,
 	ShowNotif = ShowNotif,
 	RegisterExclusive = RegisterExclusive,
 	AddButtonSweep = AddButtonSweep,
-	SaveActiveToggles = SaveActiveToggles,
+	SaveActiveToggles = SaveActiveTogglesGlobal,
 	RefreshMostUsed = RefreshMostUsed,
 	ToggleRegistry = ToggleRegistry,
-	LoadActiveToggles = LoadActiveToggles,
+	LoadActiveToggles = Storage.LoadActiveToggles,
 	SwitchPage = SwitchPage,
 	cleanGuis = cleanGuis,
-	OnLogin = function(fn) table.insert(_onLoginCallbacks, fn) end,
-	IsLoggedIn = function() return unlocked end,
+	OnLogin = function(fn) table.insert(OnLoginCallbacks, fn) end,
+	IsLoggedIn = function() return State.unlocked end,
 }
-
-if HasSession() and isWhitelisted(Player.Name) then
-	task.defer(function()
-		if GUI.Parent then LoginSuccess() end
-	end)
-end
 
 return Library
