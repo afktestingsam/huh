@@ -1,8 +1,3 @@
--- ============================================================
--- LIBRARY - Panel GUI (compacted)
--- ============================================================
-
--- Servicios (1 local en vez de 15)
 local S = {
 	Players = game:GetService("Players"),
 	Tween = game:GetService("TweenService"),
@@ -20,7 +15,6 @@ S.PlayerGui = S.Player:WaitForChild("PlayerGui")
 S.Workspace = workspace
 local WHITE = Color3.new(1,1,1)
 
--- Whitelist
 local WHITELIST = {
 	["jerehzxs"]  = "OWNER",
 	["cloudd7qo"] = "TESTER",
@@ -31,7 +25,6 @@ local WHITELIST = {
 local function getRank(n) if not n then return nil end return WHITELIST[n:lower()] end
 local function isWhitelisted(n) if not n then return false end return WHITELIST[n:lower()] ~= nil end
 
--- Font
 local MatchaFont, FontReady = nil, false
 local function LoadMatchaFont()
 	if not (isfile and writefile and getcustomasset) then return end
@@ -62,7 +55,6 @@ local function ApplyFont(obj)
 	end
 end
 
--- Storage
 local Storage = {}
 function Storage.HasSession()
 	local ok, c = pcall(function() if readfile then return readfile("wb_session.txt") end end)
@@ -80,19 +72,6 @@ function Storage.LoadUsage()
 	return {}
 end
 function Storage.SaveUsage(tbl) pcall(function() if writefile then writefile("wb_usage.json", S.Http:JSONEncode(tbl)) end end) end
-function Storage.LoadSaveData()
-	local ok, data = pcall(function() if readfile then return readfile("wb_save_data.txt") end end)
-	if not ok or not data then return false end
-	return data == "1" or data == "true"
-end
-function Storage.SaveSaveData(val) pcall(function() if writefile then writefile("wb_save_data.txt", val and "1" or "0") end end) end
-function Storage.LoadActiveToggles()
-	local ok, data = pcall(function() if readfile then return readfile("wb_saved_toggles.json") end end)
-	if not ok or not data then return {} end
-	local ok2, tbl = pcall(function() return S.Http:JSONDecode(data) end)
-	if not ok2 or type(tbl) ~= "table" then return {} end
-	return tbl
-end
 function Storage.LoadNotifRead()
 	local ok, data = pcall(function() if readfile then return readfile("wb_notif_read.txt") end end)
 	if not ok or not data then return false end
@@ -100,16 +79,12 @@ function Storage.LoadNotifRead()
 end
 function Storage.SaveNotifRead() pcall(function() if writefile then writefile("wb_notif_read.txt", "1") end end) end
 
--- Toggle data
 local ToggleUsage = Storage.LoadUsage()
 local AllToggles, ToggleRegistry, ExclusiveGroups = {}, {}, {}
-local SaveDataEnabled = Storage.LoadSaveData()
 
--- Delete old GUI
 local OldGUI = S.PlayerGui:FindFirstChild("WelcomeBackUI")
 if OldGUI then OldGUI:Destroy() end
 
--- Helper functions
 local function RegisterExclusive(groupId, toggleName)
 	if not ExclusiveGroups[groupId] then ExclusiveGroups[groupId] = { toggles = {}, activeName = nil } end
 	table.insert(ExclusiveGroups[groupId].toggles, toggleName)
@@ -138,11 +113,9 @@ local function ClearExclusiveActive(toggleName)
 	end
 end
 
--- UI table
 local UI = {}
 UI.ACCENT = Color3.fromRGB(62,215,98)
 
--- ShowNotif
 local function ShowNotif(title, text, dur)
 	dur = dur or 3
 	local n = Instance.new("Frame")
@@ -166,15 +139,20 @@ local function ShowNotif(title, text, dur)
 	b.TextColor3 = Color3.fromRGB(200, 200, 208); b.TextSize = 11
 	b.Font = Enum.Font.Gotham; b.TextXAlignment = Enum.TextXAlignment.Left
 	b.TextWrapped = true; b.Parent = n
-	S.Tween:Create(n, TweenInfo.new(0.3), {Position = UDim2.new(0.5, -150, 0, 20)}):Play()
+	local twIn = S.Tween:Create(n, TweenInfo.new(0.3), {Position = UDim2.new(0.5, -150, 0, 20)})
+	twIn:Play()
 	task.delay(dur, function()
+		if not n.Parent then return end
 		local tw = S.Tween:Create(n, TweenInfo.new(0.3), {Position = UDim2.new(0.5, -150, 0, -80)})
 		tw:Play()
 		tw.Completed:Connect(function() n:Destroy() end)
 	end)
 end
 
--- AddButtonSweep
+local SWEEP_INFO = TweenInfo.new(0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+local STROKE_IN_INFO = TweenInfo.new(0.15)
+local STROKE_OUT_INFO = TweenInfo.new(0.15)
+
 local function AddButtonSweep(btn, stroke)
 	if not btn or btn:FindFirstChild("SweepHolder") then return end
 	if stroke then
@@ -201,24 +179,27 @@ local function AddButtonSweep(btn, stroke)
 	sw.Parent = sh
 	local g = Instance.new("UIGradient", sw)
 	g.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(0.5,0),NumberSequenceKeypoint.new(1,1)})
+
+	local sweepTween = S.Tween:Create(sw, SWEEP_INFO, {Position = UDim2.new(1, 0, 0, 0)})
+	local strokeIn, strokeOut
+	if stroke then
+		strokeIn = S.Tween:Create(stroke, STROKE_IN_INFO, {Transparency = 0.5})
+		strokeOut = S.Tween:Create(stroke, STROKE_OUT_INFO, {Transparency = 0.82})
+	end
 	local sweeping = false
+	sweepTween.Completed:Connect(function() sweeping = false end)
 	btn.MouseEnter:Connect(function()
-		if stroke then S.Tween:Create(stroke, TweenInfo.new(0.15), {Transparency = 0.5}):Play() end
+		if strokeIn then strokeIn:Play() end
 		if sweeping then return end
 		sweeping = true
 		sw.Position = UDim2.new(0, -40, 0, 0)
-		local tw = S.Tween:Create(sw, TweenInfo.new(0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Position = UDim2.new(1, 0, 0, 0)})
-		tw:Play()
-		tw.Completed:Connect(function() sweeping = false end)
+		sweepTween:Play()
 	end)
 	btn.MouseLeave:Connect(function()
-		if stroke then S.Tween:Create(stroke, TweenInfo.new(0.15), {Transparency = 0.82}):Play() end
+		if strokeOut then strokeOut:Play() end
 	end)
 end
 
--- ============================================================
--- BUILD GUI (dentro de un do block para ahorrar locals)
--- ============================================================
 UI.GUI = Instance.new("ScreenGui")
 UI.GUI.Name = "WelcomeBackUI"
 UI.GUI.ResetOnSpawn = false
@@ -226,11 +207,6 @@ UI.GUI.IgnoreGuiInset = true
 UI.GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 UI.GUI.DisplayOrder = 999
 UI.GUI.Parent = S.PlayerGui
-UI.GUI.DescendantAdded:Connect(function(obj) task.defer(function() if MatchaFont then ApplyFont(obj) end end) end)
-task.spawn(function()
-	while not FontReady do task.wait(0.1) end
-	for _, obj in ipairs(UI.GUI:GetDescendants()) do ApplyFont(obj) end
-end)
 
 do
 	UI.Main = Instance.new("Frame")
@@ -331,7 +307,6 @@ do
 end
 
 do
-	-- Login page
 	UI.Login = {}
 	UI.Login.Page = Instance.new("ScrollingFrame")
 	UI.Login.Page.Name = "Login"
@@ -396,7 +371,6 @@ do
 end
 
 do
-	-- Pages
 	UI.Pages = {}
 	UI.Pages.Container = Instance.new("Frame")
 	UI.Pages.Container.Size = UDim2.new(1,0,1,-62)
@@ -434,7 +408,6 @@ do
 end
 
 do
-	-- Home content
 	local hp = UI.Pages.Home
 	local bp = Instance.new("ImageLabel")
 	bp.Size = UDim2.fromOffset(70,70); bp.Position = UDim2.new(0,20,0,16)
@@ -492,7 +465,6 @@ do
 end
 
 do
-	-- Scripts page
 	local sp = UI.Pages.Scripts
 	local st = Instance.new("TextLabel")
 	st.Size = UDim2.new(1,-40,0,26); st.Position = UDim2.new(0,20,0,12)
@@ -544,7 +516,6 @@ do
 	UI.Tabs.Extra = MakeTabContent("Extra")
 end
 
--- Resto de UI: Fling, Skys, Settings titles
 do
 	local ft = Instance.new("TextLabel")
 	ft.Size = UDim2.new(1,-40,0,26); ft.Position = UDim2.new(0,20,0,12)
@@ -592,51 +563,14 @@ do
 	UI.Settings_NewOpt = MakeStyleOption("New", 0)
 	UI.Settings_ClassicOpt = MakeStyleOption("Classic", 0.5)
 
-	-- Save data
-	local sdl = Instance.new("TextLabel")
-	sdl.Size = UDim2.new(1,-40,0,16); sdl.Position = UDim2.new(0,20,0,120)
-	sdl.BackgroundTransparency = 1; sdl.Text = "Guardar datos"
-	sdl.TextXAlignment = Enum.TextXAlignment.Left; sdl.TextColor3 = Color3.fromRGB(180,180,188)
-	sdl.TextSize = 11; sdl.Font = Enum.Font.Gotham; sdl.Parent = UI.Pages.Settings
-
-	local sdb = Instance.new("TextButton")
-	sdb.Size = UDim2.new(1,-40,0,44); sdb.Position = UDim2.new(0,20,0,142)
-	sdb.BackgroundColor3 = Color3.fromRGB(18,18,23); sdb.Text = ""
-	sdb.AutoButtonColor = false; sdb.Parent = UI.Pages.Settings
-	Instance.new("UICorner", sdb).CornerRadius = UDim.new(0,12)
-	local sdbs = Instance.new("UIStroke", sdb); sdbs.Color = Color3.fromRGB(50,50,58)
-
-	local sdt = Instance.new("TextLabel")
-	sdt.Size = UDim2.new(1,-70,0,20); sdt.Position = UDim2.new(0,14,0,4)
-	sdt.BackgroundTransparency = 1; sdt.Text = "Guardar scripts activos"
-	sdt.TextXAlignment = Enum.TextXAlignment.Left; sdt.TextColor3 = Color3.fromRGB(225,225,232)
-	sdt.TextSize = 12; sdt.Font = Enum.Font.GothamBold; sdt.Parent = sdb
-	local sds = Instance.new("TextLabel")
-	sds.Size = UDim2.new(1,-70,0,14); sds.Position = UDim2.new(0,14,0,22)
-	sds.BackgroundTransparency = 1; sds.Text = "Recargar al volver a entrar"
-	sds.TextXAlignment = Enum.TextXAlignment.Left; sds.TextColor3 = Color3.fromRGB(130,130,138)
-	sds.TextSize = 10; sds.Font = Enum.Font.Gotham; sds.Parent = sdb
-	local sdsw = Instance.new("Frame")
-	sdsw.Size = UDim2.fromOffset(36,20); sdsw.Position = UDim2.new(1,-48,0.5,-10)
-	sdsw.BackgroundColor3 = SaveDataEnabled and UI.ACCENT or Color3.fromRGB(70,70,78)
-	sdsw.BorderSizePixel = 0; sdsw.Parent = sdb
-	Instance.new("UICorner", sdsw).CornerRadius = UDim.new(1,0)
-	local sdk = Instance.new("Frame")
-	sdk.Size = UDim2.fromOffset(16,16)
-	sdk.Position = SaveDataEnabled and UDim2.new(1,-18,0.5,-8) or UDim2.fromOffset(2,2)
-	sdk.BackgroundColor3 = Color3.fromRGB(240,240,245); sdk.Parent = sdsw
-	Instance.new("UICorner", sdk).CornerRadius = UDim.new(1,0)
-	UI.SaveData_Switch = sdsw; UI.SaveData_Knob = sdk
-
-	-- Keybind
 	local kl = Instance.new("TextLabel")
-	kl.Size = UDim2.new(1,-40,0,16); kl.Position = UDim2.new(0,20,0,200)
+	kl.Size = UDim2.new(1,-40,0,16); kl.Position = UDim2.new(0,20,0,120)
 	kl.BackgroundTransparency = 1; kl.Text = "Tecla para minimizar"
 	kl.TextXAlignment = Enum.TextXAlignment.Left; kl.TextColor3 = Color3.fromRGB(180,180,188)
 	kl.TextSize = 11; kl.Font = Enum.Font.Gotham; kl.Parent = UI.Pages.Settings
 
 	local kr = Instance.new("Frame")
-	kr.Size = UDim2.new(1,-40,0,40); kr.Position = UDim2.new(0,20,0,222)
+	kr.Size = UDim2.new(1,-40,0,40); kr.Position = UDim2.new(0,20,0,142)
 	kr.BackgroundColor3 = Color3.fromRGB(18,18,23); kr.BorderSizePixel = 0; kr.Parent = UI.Pages.Settings
 	Instance.new("UICorner", kr).CornerRadius = UDim.new(0,12)
 	local krs = Instance.new("UIStroke", kr); krs.Color = Color3.fromRGB(50,50,58)
@@ -653,7 +587,6 @@ do
 end
 
 do
-	-- Bottom nav
 	UI.Bottom = Instance.new("Frame")
 	UI.Bottom.Size = UDim2.fromOffset(460,54); UI.Bottom.Position = UDim2.new(0.5,-230,1,-60)
 	UI.Bottom.BackgroundColor3 = Color3.fromRGB(18,18,22); UI.Bottom.BorderSizePixel = 0
@@ -699,7 +632,6 @@ do
 end
 
 do
-	-- Notif panel
 	local np = Instance.new("Frame")
 	np.Size = UDim2.fromOffset(280,200); np.Position = UDim2.new(0,-300,0,52)
 	np.BackgroundColor3 = Color3.fromRGB(16,16,21); np.BorderSizePixel = 0
@@ -741,7 +673,6 @@ do
 end
 
 do
-	-- Reopen
 	local r = Instance.new("TextButton")
 	r.Size = UDim2.fromOffset(52,52); r.Position = UDim2.new(0,16,1,-68)
 	r.BackgroundColor3 = Color3.fromRGB(255,255,255); r.Text = ""
@@ -755,9 +686,17 @@ do
 	UI.ReopenPos = UDim2.new(0,16,1,-68)
 end
 
--- ============================================================
--- STATE
--- ============================================================
+task.spawn(function()
+	while not FontReady do task.wait(0.1) end
+	local desc = UI.GUI:GetDescendants()
+	for i = 1, #desc do ApplyFont(desc[i]) end
+	UI.GUI.DescendantAdded:Connect(function(obj)
+		if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+			if MatchaFont then pcall(function() obj.FontFace = MatchaFont end) end
+		end
+	end)
+end)
+
 local State = {
 	buttonStyle = "New",
 	activeTab = nil,
@@ -778,9 +717,6 @@ local State = {
 }
 local OnLoginCallbacks = {}
 
--- ============================================================
--- FUNCIONES (helpers que necesitan estar fuera de do blocks)
--- ============================================================
 local function RefreshMostUsed()
 	local MostUsedList = UI.Home_MostUsedList
 	local mul = UI.Home_MostUsedLayout
@@ -801,7 +737,8 @@ local function RefreshMostUsed()
 		lbl.Font = Enum.Font.Gotham; lbl.LayoutOrder = 1; lbl.Parent = MostUsedList
 		return
 	end
-	for i = 1, math.min(5, #sorted) do
+	local limit = math.min(5, #sorted)
+	for i = 1, limit do
 		local entry = Instance.new("Frame")
 		entry.Size = UDim2.new(1,0,0,30); entry.BackgroundColor3 = Color3.fromRGB(18,18,23)
 		entry.BorderSizePixel = 0; entry.LayoutOrder = i; entry.Parent = MostUsedList
@@ -837,12 +774,15 @@ local function RefreshMostUsed()
 		if registry then
 			updateMSVisual(registry.getActive())
 			msc.MouseButton1Click:Connect(function() registry.setActive(not registry.getActive()) end)
-			task.spawn(function()
-				while entry.Parent do
-					updateMSVisual(registry.getActive())
-					task.wait(0.15)
-				end
-			end)
+			if registry.listeners then
+				local listener = function(v) if entry.Parent then updateMSVisual(v) end end
+				table.insert(registry.listeners, listener)
+				entry.Destroying:Connect(function()
+					if not registry.listeners then return end
+					local idx = table.find(registry.listeners, listener)
+					if idx then table.remove(registry.listeners, idx) end
+				end)
+			end
 		end
 	end
 end
@@ -859,6 +799,10 @@ local function cleanGuis(names)
 	scan(S.PlayerGui)
 	scan(S.CoreGui)
 end
+
+local KNOB_ON = UDim2.new(1,-18,0.5,-8)
+local KNOB_OFF = UDim2.fromOffset(2,2)
+local TOGGLE_INFO = TweenInfo.new(0.15)
 
 local function CreateToggle(parent, text, callback, order)
 	local btn = Instance.new("TextButton")
@@ -879,25 +823,22 @@ local function CreateToggle(parent, text, callback, order)
 	sw.BackgroundColor3 = Color3.fromRGB(70,70,78); sw.ZIndex = 7; sw.Parent = btn
 	Instance.new("UICorner", sw).CornerRadius = UDim.new(1,0)
 	local knob = Instance.new("Frame")
-	knob.Size = UDim2.fromOffset(16,16); knob.Position = UDim2.fromOffset(2,2)
+	knob.Size = UDim2.fromOffset(16,16); knob.Position = KNOB_OFF
 	knob.BackgroundColor3 = Color3.fromRGB(240,240,245); knob.ZIndex = 8; knob.Parent = sw
 	Instance.new("UICorner", knob).CornerRadius = UDim.new(1,0)
+	local knobTween = S.Tween:Create(knob, TOGGLE_INFO, {Position = KNOB_ON})
 	local active = false
+	local listeners = {}
 	local function setVisual(v)
 		sw.BackgroundColor3 = v and UI.ACCENT or Color3.fromRGB(70,70,78)
-		S.Tween:Create(knob, TweenInfo.new(0.15), {Position = v and UDim2.new(1,-18,0.5,-8) or UDim2.fromOffset(2,2)}):Play()
+		knob.Position = KNOB_OFF
+		knobTween:Play()
+		local n = #listeners
+		for i = 1, n do pcall(listeners[i], v) end
 	end
 	local function registerUsage()
 		ToggleUsage[text] = (ToggleUsage[text] or 0) + 1
 		Storage.SaveUsage(ToggleUsage)
-	end
-	local function SaveActiveToggles()
-		if not SaveDataEnabled then return end
-		local activeList = {}
-		for name, reg in pairs(ToggleRegistry) do
-			if reg.getActive() then table.insert(activeList, name) end
-		end
-		pcall(function() if writefile then writefile("wb_saved_toggles.json", S.Http:JSONEncode(activeList)) end end)
 	end
 	btn.MouseButton1Click:Connect(function()
 		if not active then
@@ -910,7 +851,7 @@ local function CreateToggle(parent, text, callback, order)
 		else
 			active = false; ClearExclusiveActive(text)
 		end
-		setVisual(active); pcall(callback, active); pcall(SaveActiveToggles)
+		setVisual(active); pcall(callback, active)
 	end)
 	ToggleRegistry[text] = {
 		getActive = function() return active end,
@@ -922,17 +863,15 @@ local function CreateToggle(parent, text, callback, order)
 			end
 			active = v
 			if active then registerUsage() SetExclusiveActive(text) else ClearExclusiveActive(text) end
-			setVisual(active); pcall(callback, active); pcall(SaveActiveToggles)
-		end
+			setVisual(active); pcall(callback, active)
+		end,
+		listeners = listeners,
 	}
 	table.insert(AllToggles, {btn=btn, label=label, text=text, parent=parent})
 	task.defer(function() AddButtonSweep(btn, stroke) end)
 	return btn
 end
 
--- ============================================================
--- TAB SELECTOR
--- ============================================================
 do
 	local function MakeScriptPill(text, order)
 		local b = Instance.new("TextButton")
@@ -977,18 +916,23 @@ do
 	UI.Scripts_BtnExtra.MouseButton1Click:Connect(function() SelectTab(UI.Tabs.Extra, UI.Scripts_BtnExtra) end)
 end
 
--- Search
+local searchJob
 UI.Scripts_Search:GetPropertyChangedSignal("Text"):Connect(function()
-	local q = UI.Scripts_Search.Text:lower()
-	for _, entry in ipairs(AllToggles) do
-		if q == "" then entry.btn.Visible = true
-		else entry.btn.Visible = entry.text:lower():find(q,1,true) ~= nil end
-	end
+	if searchJob then task.cancel(searchJob) end
+	searchJob = task.delay(0.12, function()
+		searchJob = nil
+		local q = UI.Scripts_Search.Text:lower()
+		if q == "" then
+			for i = 1, #AllToggles do AllToggles[i].btn.Visible = true end
+		else
+			for i = 1, #AllToggles do
+				local entry = AllToggles[i]
+				entry.btn.Visible = entry.text:lower():find(q,1,true) ~= nil
+			end
+		end
+	end)
 end)
 
--- ============================================================
--- LOGIN
--- ============================================================
 local function LoginSuccess()
 	if State.unlocked then return end
 	State.unlocked = true
@@ -1041,30 +985,6 @@ local function LoginSuccess()
 		S.Tween:Create(o, TweenInfo.new(0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), props):Play()
 	end
 	task.defer(function() pcall(RefreshMostUsed) end)
-	if SaveDataEnabled then
-		task.spawn(function()
-			task.wait(1.5)
-			local saved = Storage.LoadActiveToggles()
-			if not saved or #saved == 0 then return end
-			local function applyAll()
-				for _, name in ipairs(saved) do
-					local reg = ToggleRegistry[name]
-					if reg then pcall(function() reg.setActive(true) end) end
-				end
-			end
-			if not S.Player.Character then
-				local conn
-				conn = S.Player.CharacterAdded:Connect(function()
-					if conn then conn:Disconnect() conn = nil end
-					task.wait(1)
-					applyAll()
-				end)
-				task.delay(20, function() if conn then conn:Disconnect() conn = nil end end)
-			else
-				applyAll()
-			end
-		end)
-	end
 	for _, fn in ipairs(OnLoginCallbacks) do
 		task.spawn(function() pcall(fn) end)
 	end
@@ -1091,27 +1011,83 @@ end
 UI.Login.Enter.MouseButton1Click:Connect(TryLogin)
 UI.Login.Password.FocusLost:Connect(function(e) if e then TryLogin() end end)
 
--- ============================================================
--- KEYBIND
--- ============================================================
 UI.KeybindBtn.MouseButton1Click:Connect(function()
 	if State.listening then return end
 	State.listening = true
 	UI.KeybindBtn.Text = "Presiona una tecla..."
 	UI.KeybindBtn.TextColor3 = UI.ACCENT
 end)
-S.Input.InputBegan:Connect(function(input, gp)
-	if not State.listening then return end
-	if gp then return end
-	if input.UserInputType == Enum.UserInputType.Keyboard then
-		State.CurrentKey = input.KeyCode
-		UI.KeybindBtn.Text = tostring(State.CurrentKey.Name)
-		UI.KeybindBtn.TextColor3 = Color3.fromRGB(225,225,232)
-		State.listening = false
+
+local dragMode = nil
+local dragStartInput, dragStartPos
+local reopenMoved = false
+
+S.Input.InputChanged:Connect(function(input)
+	if not dragMode then return end
+	local t = input.UserInputType
+	if t ~= Enum.UserInputType.MouseMovement and t ~= Enum.UserInputType.Touch then return end
+	local delta = input.Position - dragStartInput
+	if dragMode == "main" then
+		UI.Main.Position = UDim2.new(dragStartPos.X.Scale, dragStartPos.X.Offset+delta.X, dragStartPos.Y.Scale, dragStartPos.Y.Offset+delta.Y)
+		if not State.isMaximized then State.NormalPosition = UI.Main.Position end
+	else
+		if not reopenMoved and (math.abs(delta.X) > 3 or math.abs(delta.Y) > 3) then reopenMoved = true end
+		local newPos = UDim2.new(dragStartPos.X.Scale, dragStartPos.X.Offset+delta.X, dragStartPos.Y.Scale, dragStartPos.Y.Offset+delta.Y)
+		UI.Reopen.Position = newPos
+		UI.ReopenPos = newPos
 	end
 end)
 
--- Notif
+S.Input.InputBegan:Connect(function(input, gp)
+	if State.listening then
+		if not gp and input.UserInputType == Enum.UserInputType.Keyboard then
+			State.CurrentKey = input.KeyCode
+			UI.KeybindBtn.Text = tostring(State.CurrentKey.Name)
+			UI.KeybindBtn.TextColor3 = Color3.fromRGB(225,225,232)
+			State.listening = false
+		end
+		return
+	end
+	if gp then return end
+	if not S.Input.TouchEnabled and State.unlocked and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == State.CurrentKey then
+		if State.minimized then
+			task.spawn(function()
+				if restoring then return end
+				if not State.minimized then return end
+				restoring = true
+				State.minimized = false
+				S.Tween:Create(UI.Reopen, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = UDim2.fromOffset(0,0), Position = UDim2.new(UI.ReopenPos.X.Scale, UI.ReopenPos.X.Offset+26, UI.ReopenPos.Y.Scale, UI.ReopenPos.Y.Offset-10)}):Play()
+				task.wait(0.2)
+				UI.Reopen.Visible = false
+				UI.Main.Visible = true
+				if State.isMaximized then
+					local cam = workspace.CurrentCamera
+					local vp = cam and cam.ViewportSize or Vector2.new(800,600)
+					UI.Main.Size = UDim2.fromOffset(math.max(vp.X - 30, 480), math.max(vp.Y - 30, 300))
+					UI.Main.Position = UDim2.fromScale(0.5, 0.5)
+					UI.UIScale.Scale = 1
+				else
+					UI.Main.Size = State.NormalSize
+					UI.Main.Position = State.NormalPosition
+					UI.UIScale.Scale = 0
+				end
+				UI.Main.Rotation = -3
+				CloseNotifications()
+				S.Tween:Create(UI.Main, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Rotation=0}):Play()
+				if not State.isMaximized then
+					S.Tween:Create(UI.UIScale, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale=1}):Play()
+				end
+				task.delay(0.5, function()
+					if not State.minimized and not State.isMaximized then UpdateDeviceSize() end
+					restoring = false
+				end)
+			end)
+		else
+			task.spawn(Minimize)
+		end
+	end
+end)
+
 if State.notifRead then
 	UI.NotifDot.Visible = false
 	UI.NotifReadBtn.Text = "Leído ✓"
@@ -1143,13 +1119,8 @@ UI.NotifReadBtn.MouseButton1Click:Connect(function()
 	UI.NotifReadBtn.BackgroundColor3 = Color3.fromRGB(35,90,50)
 end)
 
--- Save data btn
-local function UpdateSaveDataVisual()
-	UI.SaveData_Switch.BackgroundColor3 = SaveDataEnabled and UI.ACCENT or Color3.fromRGB(70,70,78)
-	S.Tween:Create(UI.SaveData_Knob, TweenInfo.new(0.15), {Position = SaveDataEnabled and UDim2.new(1,-18,0.5,-8) or UDim2.fromOffset(2,2)}):Play()
-end
-S.PlayerGui = UI.GUI -- Placeholder to avoid unused
--- Button style
+S.PlayerGui = UI.GUI
+
 local UpdateButtonStyle
 UpdateButtonStyle = function()
 	if State.buttonStyle == "New" then
@@ -1202,26 +1173,26 @@ task.spawn(function()
 	end
 end)
 
-local function colorOwnerRainbow() return Color3.fromHSV((os.clock() * 0.25) % 1, 1, 1) end
-local function colorTesterRGB()
-	local t = (os.clock() * 0.5) % 1
-	local blue = Color3.fromRGB(0,80,255)
-	local red = Color3.fromRGB(255,0,0)
-	if t < 0.5 then return blue:Lerp(red, t*2) else return red:Lerp(blue, (t-0.5)*2) end
-end
+local MY_RANK = getRank(S.Player.Name)
+local rankAnimating = (MY_RANK == "OWNER" or MY_RANK == "TESTER")
 local rankAccum = 0
 S.Run.Heartbeat:Connect(function(dt)
+	if not rankAnimating then return end
 	if not UI.Home_Rank.Visible then return end
-	local r = getRank(S.Player.Name)
-	if r ~= "OWNER" and r ~= "TESTER" then return end
 	rankAccum += dt
 	if rankAccum < 0.05 then return end
 	rankAccum = 0
-	if r == "OWNER" then UI.Home_Rank.TextColor3 = colorOwnerRainbow()
-	elseif r == "TESTER" then UI.Home_Rank.TextColor3 = colorTesterRGB() end
+	if MY_RANK == "OWNER" then
+		UI.Home_Rank.TextColor3 = Color3.fromHSV((os.clock() * 0.25) % 1, 1, 1)
+	else
+		local t = (os.clock() * 0.5) % 1
+		local blue = Color3.fromRGB(0,80,255)
+		local red = Color3.fromRGB(255,0,0)
+		if t < 0.5 then UI.Home_Rank.TextColor3 = blue:Lerp(red, t*2)
+		else UI.Home_Rank.TextColor3 = red:Lerp(blue, (t-0.5)*2) end
+	end
 end)
 
--- Page map + Switch
 local PageMap = {Home=UI.Pages.Home, Scripts=UI.Pages.Scripts, Fling=UI.Pages.Fling, Skys=UI.Pages.Skys, Animations=UI.Pages.Animations, Settings=UI.Pages.Settings}
 local function ResetScroll()
 	for _, p in pairs(PageMap) do p.CanvasPosition = Vector2.new(0,0) end
@@ -1245,8 +1216,9 @@ local function SwitchPage(target, fromRight)
 end
 UI.SwitchPage = SwitchPage
 
+local PILL_INFO = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local function MoveNavPill(x, w)
-	S.Tween:Create(UI.NavPill, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, x, 0, 4), Size = UDim2.fromOffset(w, 46)}):Play()
+	S.Tween:Create(UI.NavPill, PILL_INFO, {Position = UDim2.new(0, x, 0, 4), Size = UDim2.fromOffset(w, 46)}):Play()
 end
 UI.NavHome.MouseButton1Click:Connect(function() SwitchPage("Home", false) MoveNavPill(2, 76) end)
 UI.NavScripts.MouseButton1Click:Connect(function() SwitchPage("Scripts", true) MoveNavPill(78, 76) end)
@@ -1255,44 +1227,31 @@ UI.NavSkys.MouseButton1Click:Connect(function() SwitchPage("Skys", true) MoveNav
 UI.NavAnims.MouseButton1Click:Connect(function() SwitchPage("Animations", true) MoveNavPill(306, 76) end)
 UI.NavSettings.MouseButton1Click:Connect(function() SwitchPage("Settings", true) MoveNavPill(382, 76) end)
 
-local function SaveActiveTogglesGlobal()
-	if not SaveDataEnabled then return end
-	local activeList = {}
-	for name, reg in pairs(ToggleRegistry) do
-		if reg.getActive() then table.insert(activeList, name) end
-	end
-	pcall(function() if writefile then writefile("wb_saved_toggles.json", S.Http:JSONEncode(activeList)) end end)
-end
+UI.CloseBtn.MouseButton1Click:Connect(function() UI.GUI:Destroy() end)
+UI.ClassicClose.MouseButton1Click:Connect(function() UI.GUI:Destroy() end)
 
-UI.CloseBtn.MouseButton1Click:Connect(function() pcall(SaveActiveTogglesGlobal) UI.GUI:Destroy() end)
-UI.ClassicClose.MouseButton1Click:Connect(function() pcall(SaveActiveTogglesGlobal) UI.GUI:Destroy() end)
-
--- Save data button connect
-UI.SaveData_Switch.Parent.MouseButton1Click:Connect(function()
-	SaveDataEnabled = not SaveDataEnabled
-	Storage.SaveSaveData(SaveDataEnabled)
-	UpdateSaveDataVisual()
-	if SaveDataEnabled then SaveActiveTogglesGlobal() else pcall(function() if writefile then writefile("wb_saved_toggles.json", "[]") end end) end
-end)
-
--- Minimize / Restore / Maximize
 local restoring = false
-local function Minimize()
+local MIN_INFO = TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+local MIN_REOPEN_INFO = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+local RESTORE_INFO = TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+function Minimize()
 	if State.minimized then return end
 	State.minimized = true
 	State.NormalSize = UI.Main.Size
 	State.NormalPosition = UI.Main.Position
 	CloseNotifications()
-	S.Tween:Create(UI.UIScale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Scale=0}):Play()
+	S.Tween:Create(UI.UIScale, MIN_INFO, {Scale=0}):Play()
 	task.wait(0.28)
 	UI.Main.Visible = false
 	UpdateDeviceSize()
 	UI.Reopen.Visible = true
 	UI.Reopen.Size = UDim2.fromOffset(0,0)
 	UI.Reopen.Position = UDim2.new(UI.ReopenPos.X.Scale, UI.ReopenPos.X.Offset+26, UI.ReopenPos.Y.Scale, UI.ReopenPos.Y.Offset-10)
-	S.Tween:Create(UI.Reopen, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size=UDim2.fromOffset(52,52), Position=UI.ReopenPos}):Play()
+	S.Tween:Create(UI.Reopen, MIN_REOPEN_INFO, {Size=UDim2.fromOffset(52,52), Position=UI.ReopenPos}):Play()
 end
-local function Restore()
+
+function Restore()
 	if restoring then return end
 	if not State.minimized then return end
 	restoring = true
@@ -1314,17 +1273,20 @@ local function Restore()
 	end
 	UI.Main.Rotation = -3
 	CloseNotifications()
-	S.Tween:Create(UI.Main, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Rotation=0}):Play()
+	S.Tween:Create(UI.Main, RESTORE_INFO, {Rotation=0}):Play()
 	if not State.isMaximized then
-		S.Tween:Create(UI.UIScale, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale=1}):Play()
+		S.Tween:Create(UI.UIScale, RESTORE_INFO, {Scale=1}):Play()
 	end
 	task.delay(0.5, function()
 		if not State.minimized and not State.isMaximized then UpdateDeviceSize() end
 		restoring = false
 	end)
 end
+
 UI.MinBtn.MouseButton1Click:Connect(Minimize)
 UI.ClassicMin.MouseButton1Click:Connect(Minimize)
+
+local MAX_INFO = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 UI.MaxBtn.MouseButton1Click:Connect(function()
 	if State.minimized then return end
 	local cam = workspace.CurrentCamera
@@ -1335,8 +1297,8 @@ UI.MaxBtn.MouseButton1Click:Connect(function()
 		local targetPos = State.PreMaxPos or UDim2.fromScale(0.5, 0.5)
 		local s = math.min((vp.X-20)/480, (vp.Y-40)/300)
 		s = math.clamp(s, 0.5, 1)
-		S.Tween:Create(UI.UIScale, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Scale = s}):Play()
-		S.Tween:Create(UI.Main, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = targetSize, Position = targetPos}):Play()
+		S.Tween:Create(UI.UIScale, MAX_INFO, {Scale = s}):Play()
+		S.Tween:Create(UI.Main, MAX_INFO, {Size = targetSize, Position = targetPos}):Play()
 		task.delay(0.4, function()
 			if not State.isMaximized and not State.minimized then State.NormalSize = UI.Main.Size State.NormalPosition = UI.Main.Position end
 		end)
@@ -1346,82 +1308,51 @@ UI.MaxBtn.MouseButton1Click:Connect(function()
 		State.PreMaxPos = UI.Main.Position
 		local maxW = math.max(vp.X - 30, 480)
 		local maxH = math.max(vp.Y - 30, 300)
-		S.Tween:Create(UI.UIScale, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Scale = 1}):Play()
-		S.Tween:Create(UI.Main, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(maxW, maxH), Position = UDim2.fromScale(0.5, 0.5)}):Play()
+		S.Tween:Create(UI.UIScale, MAX_INFO, {Scale = 1}):Play()
+		S.Tween:Create(UI.Main, MAX_INFO, {Size = UDim2.fromOffset(maxW, maxH), Position = UDim2.fromScale(0.5, 0.5)}):Play()
 	end
 end)
 
--- Keybind minimize
-if not S.Input.TouchEnabled then
-	S.Input.InputBegan:Connect(function(input, gp)
-		if gp then return end
-		if not State.unlocked then return end
-		if input.KeyCode == State.CurrentKey then
-			if State.minimized then Restore() else Minimize() end
-		end
-	end)
-end
-
--- Drags
-local reopenDragging, reopenMoved, reopenDragStart, reopenStartPos = false, false, nil, nil
 UI.Reopen.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		reopenDragging = true; reopenMoved = false
-		reopenDragStart = input.Position; reopenStartPos = UI.Reopen.Position
+		dragMode = "reopen"
+		reopenMoved = false
+		dragStartInput = input.Position
+		dragStartPos = UI.Reopen.Position
 		local conn
 		conn = input.Changed:Connect(function()
 			if input.UserInputState == Enum.UserInputState.End then
-				reopenDragging = false
 				if conn then conn:Disconnect() end
-				if not reopenMoved then Restore() end
+				if dragMode == "reopen" then
+					dragMode = nil
+					if not reopenMoved then Restore() end
+				end
 			end
 		end)
 	end
 end)
-S.Input.InputChanged:Connect(function(input)
-	if not reopenDragging then return end
-	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-		local delta = input.Position - reopenDragStart
-		if math.abs(delta.X) > 3 or math.abs(delta.Y) > 3 then reopenMoved = true end
-		local newPos = UDim2.new(reopenStartPos.X.Scale, reopenStartPos.X.Offset+delta.X, reopenStartPos.Y.Scale, reopenStartPos.Y.Offset+delta.Y)
-		UI.Reopen.Position = newPos
-		UI.ReopenPos = newPos
-	end
-end)
 
-local dragging, dragStart, startPos, dragConn = false, nil, nil, nil
 UI.Top.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		dragging = true
-		dragStart = input.Position; startPos = UI.Main.Position
-		if dragConn then dragConn:Disconnect() end
-		dragConn = input.Changed:Connect(function()
+		dragMode = "main"
+		dragStartInput = input.Position
+		dragStartPos = UI.Main.Position
+		local conn
+		conn = input.Changed:Connect(function()
 			if input.UserInputState == Enum.UserInputState.End then
-				dragging = false
-				if dragConn then dragConn:Disconnect() dragConn = nil end
+				if conn then conn:Disconnect() end
+				if dragMode == "main" then dragMode = nil end
 			end
 		end)
 	end
 end)
-S.Input.InputChanged:Connect(function(input)
-	if not dragging then return end
-	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-		local delta = input.Position - dragStart
-		UI.Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset+delta.X, startPos.Y.Scale, startPos.Y.Offset+delta.Y)
-		if not State.isMaximized then State.NormalPosition = UI.Main.Position end
-	end
-end)
 
--- Auto login
 if Storage.HasSession() and isWhitelisted(S.Player.Name) then
 	task.defer(function()
 		if UI.GUI.Parent then LoginSuccess() end
 	end)
 end
 
--- ============================================================
--- API
--- ============================================================
 local Library = {
 	GUI = UI.GUI,
 	Window = UI.Main,
@@ -1446,10 +1377,8 @@ local Library = {
 	ShowNotif = ShowNotif,
 	RegisterExclusive = RegisterExclusive,
 	AddButtonSweep = AddButtonSweep,
-	SaveActiveToggles = SaveActiveTogglesGlobal,
 	RefreshMostUsed = RefreshMostUsed,
 	ToggleRegistry = ToggleRegistry,
-	LoadActiveToggles = Storage.LoadActiveToggles,
 	SwitchPage = SwitchPage,
 	cleanGuis = cleanGuis,
 	OnLogin = function(fn) table.insert(OnLoginCallbacks, fn) end,
