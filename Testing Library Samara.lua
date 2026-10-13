@@ -826,13 +826,12 @@ local function CreateToggle(parent, text, callback, order)
 	knob.Size = UDim2.fromOffset(16,16); knob.Position = KNOB_OFF
 	knob.BackgroundColor3 = Color3.fromRGB(240,240,245); knob.ZIndex = 8; knob.Parent = sw
 	Instance.new("UICorner", knob).CornerRadius = UDim.new(1,0)
-	local knobTween = S.Tween:Create(knob, TOGGLE_INFO, {Position = KNOB_ON})
+	
 	local active = false
 	local listeners = {}
 	local function setVisual(v)
 		sw.BackgroundColor3 = v and UI.ACCENT or Color3.fromRGB(70,70,78)
-		knob.Position = KNOB_OFF
-		knobTween:Play()
+		S.Tween:Create(knob, TOGGLE_INFO, {Position = v and KNOB_ON or KNOB_OFF}):Play()
 		local n = #listeners
 		for i = 1, n do pcall(listeners[i], v) end
 	end
