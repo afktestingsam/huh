@@ -16,8 +16,8 @@ S.Workspace = workspace
 local WHITE = Color3.new(1,1,1)
 
 local WHITELIST = {
-	["jerehzxs"]  = "OWNER",
-	["cloudd7qo"] = "TESTER",
+	["samlpzqq"]  = "OWNER",
+	["chiquille_xd"] = "TESTER",
 	["jerehvo"]   = "MEMBER",
 	["b92b08a"]   = "MEMBER",
 	["astrixrsz"] = "MEMBER",
