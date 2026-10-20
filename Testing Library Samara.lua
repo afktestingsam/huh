@@ -72,12 +72,6 @@ function Storage.LoadUsage()
 	return {}
 end
 function Storage.SaveUsage(tbl) pcall(function() if writefile then writefile("wb_usage.json", S.Http:JSONEncode(tbl)) end end) end
-function Storage.LoadNotifRead()
-	local ok, data = pcall(function() if readfile then return readfile("wb_notif_read.txt") end end)
-	if not ok or not data then return false end
-	return data == "1" or data == "true"
-end
-function Storage.SaveNotifRead() pcall(function() if writefile then writefile("wb_notif_read.txt", "1") end end) end
 
 local ToggleUsage = Storage.LoadUsage()
 local AllToggles, ToggleRegistry, ExclusiveGroups = {}, {}, {}
@@ -276,27 +270,6 @@ do
 	tt.BackgroundTransparency = 1; tt.Text = "Panel"; tt.TextXAlignment = Enum.TextXAlignment.Left
 	tt.TextColor3 = Color3.fromRGB(225,225,232); tt.TextSize = 16
 	tt.Font = Enum.Font.GothamBold; tt.Parent = tg
-
-	UI.NotifBtn = Instance.new("TextButton")
-	UI.NotifBtn.Size = UDim2.fromOffset(30,30); UI.NotifBtn.Position = UDim2.new(1,-46,0,9)
-	UI.NotifBtn.BackgroundColor3 = Color3.fromRGB(24,24,30); UI.NotifBtn.Text = ""
-	UI.NotifBtn.AutoButtonColor = false; UI.NotifBtn.Parent = UI.Top
-	Instance.new("UICorner", UI.NotifBtn).CornerRadius = UDim.new(1,0)
-	local ns = Instance.new("UIStroke", UI.NotifBtn); ns.Color = Color3.fromRGB(52,52,60)
-	local ni = Instance.new("ImageLabel")
-	ni.Size = UDim2.new(1,-12,1,-12); ni.Position = UDim2.new(0,6,0,6)
-	ni.BackgroundTransparency = 1; ni.Image = "rbxassetid://133824150122272"; ni.Parent = UI.NotifBtn
-	UI.NotifDot = Instance.new("Frame")
-	UI.NotifDot.Size = UDim2.fromOffset(14,14); UI.NotifDot.Position = UDim2.new(1,-9,0,-3)
-	UI.NotifDot.BackgroundColor3 = Color3.fromRGB(255,60,60); UI.NotifDot.BorderSizePixel = 0
-	UI.NotifDot.ZIndex = 5; UI.NotifDot.Parent = UI.NotifBtn
-	Instance.new("UICorner", UI.NotifDot).CornerRadius = UDim.new(1,0)
-	local nds = Instance.new("UIStroke", UI.NotifDot)
-	nds.Color = Color3.fromRGB(10,10,14); nds.Thickness = 2
-	local nb = Instance.new("TextLabel")
-	nb.Size = UDim2.new(1,0,1,0); nb.BackgroundTransparency = 1; nb.Text = "1"
-	nb.TextColor3 = Color3.fromRGB(255,255,255); nb.TextSize = 9
-	nb.Font = Enum.Font.GothamBold; nb.ZIndex = 6; nb.Parent = UI.NotifDot
 end
 
 do
@@ -447,7 +420,7 @@ do
 
 	local mut = Instance.new("TextLabel")
 	mut.Size = UDim2.new(1,-70,0,20); mut.Position = UDim2.new(0,20,0,100)
-	mut.BackgroundTransparency = 1; mut.Text = "Most Used Scripts"
+	mut.BackgroundTransparency = 1; mut.Text = "Favorite Scripts"
 	mut.TextXAlignment = Enum.TextXAlignment.Left; mut.TextColor3 = Color3.fromRGB(245,245,247)
 	mut.TextSize = 14; mut.Font = Enum.Font.GothamBold; mut.Parent = hp
 	local mus = Instance.new("ImageLabel")
@@ -632,47 +605,6 @@ do
 end
 
 do
-	local np = Instance.new("Frame")
-	np.Size = UDim2.fromOffset(280,200); np.Position = UDim2.new(0,-300,0,52)
-	np.BackgroundColor3 = Color3.fromRGB(16,16,21); np.BorderSizePixel = 0
-	np.ZIndex = 20; np.Visible = false; np.Parent = UI.Main
-	Instance.new("UICorner", np).CornerRadius = UDim.new(0,12)
-	local nps = Instance.new("UIStroke", np); nps.Color = Color3.fromRGB(50,50,58)
-	local npt = Instance.new("TextLabel")
-	npt.Size = UDim2.new(1,-24,0,28); npt.Position = UDim2.new(0,12,0,8)
-	npt.BackgroundTransparency = 1; npt.Text = "Notificaciones"
-	npt.TextXAlignment = Enum.TextXAlignment.Left; npt.TextColor3 = Color3.fromRGB(245,245,247)
-	npt.TextSize = 14; npt.Font = Enum.Font.GothamBold; npt.ZIndex = 21; npt.Parent = np
-	local npl = Instance.new("Frame")
-	npl.Size = UDim2.new(1,-24,0,1); npl.Position = UDim2.new(0,12,0,40)
-	npl.BackgroundColor3 = Color3.fromRGB(40,40,46); npl.BorderSizePixel = 0; npl.ZIndex = 21; npl.Parent = np
-	local ne = Instance.new("Frame")
-	ne.Size = UDim2.new(1,-24,0,120); ne.Position = UDim2.new(0,12,0,48)
-	ne.BackgroundColor3 = Color3.fromRGB(22,22,28); ne.BorderSizePixel = 0; ne.ZIndex = 21; ne.Parent = np
-	Instance.new("UICorner", ne).CornerRadius = UDim.new(0,8)
-	local nes = Instance.new("UIStroke", ne); nes.Color = Color3.fromRGB(60,60,70)
-	local net = Instance.new("TextLabel")
-	net.Size = UDim2.new(1,-20,0,20); net.Position = UDim2.new(0,10,0,8)
-	net.BackgroundTransparency = 1; net.Text = "Nueva Actualización!"
-	net.TextXAlignment = Enum.TextXAlignment.Left; net.TextColor3 = Color3.fromRGB(245,245,247)
-	net.TextSize = 12; net.Font = Enum.Font.GothamBold; net.ZIndex = 22; net.Parent = ne
-	local netx = Instance.new("TextLabel")
-	netx.Size = UDim2.new(1,-20,0,50); netx.Position = UDim2.new(0,10,0,30)
-	netx.BackgroundTransparency = 1; netx.Text = "La próxima actualización traerá más de 20 skyboxes nuevos!"
-	netx.TextXAlignment = Enum.TextXAlignment.Left; netx.TextYAlignment = Enum.TextYAlignment.Top
-	netx.TextWrapped = true; netx.TextColor3 = Color3.fromRGB(200,200,208)
-	netx.TextSize = 11; netx.Font = Enum.Font.Gotham; netx.ZIndex = 22; netx.Parent = ne
-	local rb = Instance.new("TextButton")
-	rb.Size = UDim2.new(1,-20,0,24); rb.Position = UDim2.new(0,10,1,-32)
-	rb.BackgroundColor3 = Color3.fromRGB(40,40,48); rb.Text = "Leído"
-	rb.TextColor3 = Color3.fromRGB(225,225,232); rb.TextSize = 11
-	rb.Font = Enum.Font.GothamBold; rb.AutoButtonColor = false; rb.ZIndex = 22; rb.Parent = ne
-	Instance.new("UICorner", rb).CornerRadius = UDim.new(0,6)
-	UI.NotifPanel = np
-	UI.NotifReadBtn = rb
-end
-
-do
 	local r = Instance.new("TextButton")
 	r.Size = UDim2.fromOffset(52,52); r.Position = UDim2.new(0,16,1,-68)
 	r.BackgroundColor3 = Color3.fromRGB(255,255,255); r.Text = ""
@@ -704,7 +636,6 @@ local State = {
 	unlocked = false,
 	minimized = false,
 	isMaximized = false,
-	notifOpen = false,
 	animating = false,
 	currentPageName = "Home",
 	CurrentKey = Enum.KeyCode.M,
@@ -713,7 +644,6 @@ local State = {
 	NormalPosition = UDim2.fromScale(0.5,0.5),
 	PreMaxSize = nil,
 	PreMaxPos = nil,
-	notifRead = Storage.LoadNotifRead(),
 }
 local OnLoginCallbacks = {}
 
@@ -826,7 +756,7 @@ local function CreateToggle(parent, text, callback, order)
 	knob.Size = UDim2.fromOffset(16,16); knob.Position = KNOB_OFF
 	knob.BackgroundColor3 = Color3.fromRGB(240,240,245); knob.ZIndex = 8; knob.Parent = sw
 	Instance.new("UICorner", knob).CornerRadius = UDim.new(1,0)
-	
+
 	local active = false
 	local listeners = {}
 	local function setVisual(v)
@@ -1037,87 +967,6 @@ S.Input.InputChanged:Connect(function(input)
 	end
 end)
 
-S.Input.InputBegan:Connect(function(input, gp)
-	if State.listening then
-		if not gp and input.UserInputType == Enum.UserInputType.Keyboard then
-			State.CurrentKey = input.KeyCode
-			UI.KeybindBtn.Text = tostring(State.CurrentKey.Name)
-			UI.KeybindBtn.TextColor3 = Color3.fromRGB(225,225,232)
-			State.listening = false
-		end
-		return
-	end
-	if gp then return end
-	if not S.Input.TouchEnabled and State.unlocked and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == State.CurrentKey then
-		if State.minimized then
-			task.spawn(function()
-				if restoring then return end
-				if not State.minimized then return end
-				restoring = true
-				State.minimized = false
-				S.Tween:Create(UI.Reopen, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = UDim2.fromOffset(0,0), Position = UDim2.new(UI.ReopenPos.X.Scale, UI.ReopenPos.X.Offset+26, UI.ReopenPos.Y.Scale, UI.ReopenPos.Y.Offset-10)}):Play()
-				task.wait(0.2)
-				UI.Reopen.Visible = false
-				UI.Main.Visible = true
-				if State.isMaximized then
-					local cam = workspace.CurrentCamera
-					local vp = cam and cam.ViewportSize or Vector2.new(800,600)
-					UI.Main.Size = UDim2.fromOffset(math.max(vp.X - 30, 480), math.max(vp.Y - 30, 300))
-					UI.Main.Position = UDim2.fromScale(0.5, 0.5)
-					UI.UIScale.Scale = 1
-				else
-					UI.Main.Size = State.NormalSize
-					UI.Main.Position = State.NormalPosition
-					UI.UIScale.Scale = 0
-				end
-				UI.Main.Rotation = -3
-				CloseNotifications()
-				S.Tween:Create(UI.Main, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Rotation=0}):Play()
-				if not State.isMaximized then
-					S.Tween:Create(UI.UIScale, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale=1}):Play()
-				end
-				task.delay(0.5, function()
-					if not State.minimized and not State.isMaximized then UpdateDeviceSize() end
-					restoring = false
-				end)
-			end)
-		else
-			task.spawn(Minimize)
-		end
-	end
-end)
-
-if State.notifRead then
-	UI.NotifDot.Visible = false
-	UI.NotifReadBtn.Text = "Leído ✓"
-	UI.NotifReadBtn.BackgroundColor3 = Color3.fromRGB(35,90,50)
-end
-local function CloseNotifications()
-	State.notifOpen = false
-	UI.NotifPanel.Position = UDim2.new(0,-300,0,52)
-	UI.NotifPanel.Visible = false
-end
-UI.NotifBtn.MouseButton1Click:Connect(function()
-	if State.notifOpen then
-		local tw = S.Tween:Create(UI.NotifPanel, TweenInfo.new(0.28), {Position=UDim2.new(0,-300,0,52)})
-		tw:Play(); State.notifOpen = false
-		tw.Completed:Connect(function() if not State.notifOpen then UI.NotifPanel.Visible = false end end)
-	else
-		State.notifOpen = true
-		UI.NotifPanel.Visible = true
-		UI.NotifPanel.Position = UDim2.new(0,-300,0,52)
-		S.Tween:Create(UI.NotifPanel, TweenInfo.new(0.3), {Position=UDim2.new(0,12,0,52)}):Play()
-	end
-end)
-UI.NotifReadBtn.MouseButton1Click:Connect(function()
-	if State.notifRead then return end
-	State.notifRead = true
-	Storage.SaveNotifRead()
-	UI.NotifDot.Visible = false
-	UI.NotifReadBtn.Text = "Leído ✓"
-	UI.NotifReadBtn.BackgroundColor3 = Color3.fromRGB(35,90,50)
-end)
-
 S.PlayerGui = UI.GUI
 
 local UpdateButtonStyle
@@ -1125,13 +974,11 @@ UpdateButtonStyle = function()
 	if State.buttonStyle == "New" then
 		UI.CloseBtn.Visible = true; UI.MinBtn.Visible = true; UI.MaxBtn.Visible = true
 		UI.ClassicClose.Visible = false; UI.ClassicMin.Visible = false
-		UI.NotifBtn.Position = UDim2.new(1,-46,0,9)
 		S.Tween:Create(UI.Settings_NewOpt, TweenInfo.new(0.2), {BackgroundColor3=UI.ACCENT, TextColor3=Color3.fromRGB(20,20,24)}):Play()
 		S.Tween:Create(UI.Settings_ClassicOpt, TweenInfo.new(0.2), {BackgroundColor3=Color3.fromRGB(30,30,36), TextColor3=Color3.fromRGB(200,200,208)}):Play()
 	else
 		UI.CloseBtn.Visible = false; UI.MinBtn.Visible = false; UI.MaxBtn.Visible = false
 		UI.ClassicClose.Visible = true; UI.ClassicMin.Visible = true
-		UI.NotifBtn.Position = UDim2.new(0,16,0,9)
 		S.Tween:Create(UI.Settings_ClassicOpt, TweenInfo.new(0.2), {BackgroundColor3=UI.ACCENT, TextColor3=Color3.fromRGB(20,20,24)}):Play()
 		S.Tween:Create(UI.Settings_NewOpt, TweenInfo.new(0.2), {BackgroundColor3=Color3.fromRGB(30,30,36), TextColor3=Color3.fromRGB(200,200,208)}):Play()
 	end
@@ -1154,8 +1001,10 @@ local function UpdateDeviceSize()
 	local s = math.min((vp.X-20)/480, (vp.Y-40)/300)
 	s = math.clamp(s, 0.5, 1)
 	UI.UIScale.Scale = s
-	State.NormalSize = UI.Main.Size
-	State.NormalPosition = UI.Main.Position
+	if not State.minimized then
+		State.NormalSize = UI.Main.Size
+		State.NormalPosition = UI.Main.Position
+	end
 end
 UpdateDeviceSize()
 if workspace.CurrentCamera then
@@ -1236,14 +1085,13 @@ local RESTORE_INFO = TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirec
 
 function Minimize()
 	if State.minimized then return end
+	if restoring then return end
 	State.minimized = true
 	State.NormalSize = UI.Main.Size
 	State.NormalPosition = UI.Main.Position
-	CloseNotifications()
 	S.Tween:Create(UI.UIScale, MIN_INFO, {Scale=0}):Play()
-	task.wait(0.28)
+	task.wait(0.32)
 	UI.Main.Visible = false
-	UpdateDeviceSize()
 	UI.Reopen.Visible = true
 	UI.Reopen.Size = UDim2.fromOffset(0,0)
 	UI.Reopen.Position = UDim2.new(UI.ReopenPos.X.Scale, UI.ReopenPos.X.Offset+26, UI.ReopenPos.Y.Scale, UI.ReopenPos.Y.Offset-10)
@@ -1271,16 +1119,38 @@ function Restore()
 		UI.UIScale.Scale = 0
 	end
 	UI.Main.Rotation = -3
-	CloseNotifications()
 	S.Tween:Create(UI.Main, RESTORE_INFO, {Rotation=0}):Play()
 	if not State.isMaximized then
 		S.Tween:Create(UI.UIScale, RESTORE_INFO, {Scale=1}):Play()
 	end
-	task.delay(0.5, function()
-		if not State.minimized and not State.isMaximized then UpdateDeviceSize() end
+	task.delay(0.6, function()
+		if not State.minimized and not State.isMaximized then
+			UpdateDeviceSize()
+			if UI.UIScale.Scale < 0.1 then UI.UIScale.Scale = 1 end
+		end
 		restoring = false
 	end)
 end
+
+S.Input.InputBegan:Connect(function(input, gp)
+	if State.listening then
+		if not gp and input.UserInputType == Enum.UserInputType.Keyboard then
+			State.CurrentKey = input.KeyCode
+			UI.KeybindBtn.Text = tostring(State.CurrentKey.Name)
+			UI.KeybindBtn.TextColor3 = Color3.fromRGB(225,225,232)
+			State.listening = false
+		end
+		return
+	end
+	if gp then return end
+	if not S.Input.TouchEnabled and State.unlocked and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == State.CurrentKey then
+		if State.minimized then
+			task.spawn(Restore)
+		else
+			task.spawn(Minimize)
+		end
+	end
+end)
 
 UI.MinBtn.MouseButton1Click:Connect(Minimize)
 UI.ClassicMin.MouseButton1Click:Connect(Minimize)
