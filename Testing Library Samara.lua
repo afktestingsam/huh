@@ -18,9 +18,10 @@ local WHITE = Color3.new(1,1,1)
 local WHITELIST = {
 	["samlpzqq"]  = "OWNER",
 	["chiquille_xd"] = "TESTER",
-	["jerehvo"]   = "MEMBER",
+	["jerehvo"]   = "TESTER",
 	["b92b08a"]   = "MEMBER",
 	["astrixrsz"] = "MEMBER",
+	["danterafael15"] = "MEMBER",
 }
 local function getRank(n) if not n then return nil end return WHITELIST[n:lower()] end
 local function isWhitelisted(n) if not n then return false end return WHITELIST[n:lower()] ~= nil end
