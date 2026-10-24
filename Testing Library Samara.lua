@@ -4,8 +4,14 @@ local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
-local parentGui = gethui and gethui() or game:GetService("CoreGui")
 local player = Players.LocalPlayer
+
+local parentGui
+if gethui then
+	parentGui = gethui()
+else
+	parentGui = player:WaitForChild("PlayerGui")
+end
 
 local SESSION_FILE = "Pompompurin_Session.json"
 local SESSION_SECONDS = 24 * 60 * 60
@@ -52,6 +58,7 @@ do
 		["jerehvo"]      = {"PUTA", "TESTER"},
 		["b92b08a"]      = {"PUTA", "MEMBER"},
 		["astrixrsz"]    = {"MEMBER"},
+		["danterafael15"] = {"PUTA", "MEMBER"},
 	}
 
 	local POMPOM = {
@@ -83,6 +90,7 @@ do
 	end
 end
 
+-- SISTEMA PARA BORRAR LA GUI ANTIGUA Y EVITAR QUE SE DUPLIQUE/CORROMPA
 local oldGui = parentGui:FindFirstChild("PompompurinGUI") or player:WaitForChild("PlayerGui"):FindFirstChild("PompompurinGUI")
 if oldGui then oldGui:Destroy() end
 
@@ -91,13 +99,14 @@ ScreenGui.Name = "PompompurinGUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.DisplayOrder = -1
+ScreenGui.DisplayOrder = 100
 ScreenGui.Parent = parentGui
 
 local MainFrame = Instance.new("ImageLabel")
 MainFrame.Name = "MainFrame"
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5) 
 MainFrame.Size = UDim2.new(0, 480, 0, 300)
-MainFrame.Position = UDim2.new(0.5, -240, 0.5, -150)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.Image = "rbxassetid://96461305921889"
 MainFrame.BackgroundTransparency = 1
 MainFrame.ImageTransparency = 0
@@ -109,17 +118,21 @@ local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 10)
 UICorner.Parent = MainFrame
 
+local MainScale = Instance.new("UIScale")
+MainScale.Scale = 1
+MainScale.Parent = MainFrame
+
 local function createMacButton(name, posX)
-	local btn = Instance.new("TextButton")
-	btn.Name = name
-	btn.Size = UDim2.new(0, 22, 0, 22)
-	btn.Position = UDim2.new(0, posX, 0, 14)
-	btn.BackgroundTransparency = 1
-	btn.Text = ""
-	btn.ZIndex = 5
-	btn.Active = true
-	btn.Parent = MainFrame
-	return btn
+    local btn = Instance.new("TextButton")
+    btn.Name = name
+    btn.Size = UDim2.new(0, 22, 0, 22)
+    btn.Position = UDim2.new(0, posX, 0, 14)
+    btn.BackgroundTransparency = 1
+    btn.Text = ""
+    btn.ZIndex = 5
+    btn.Active = true
+    btn.Parent = MainFrame
+    return btn
 end
 
 local BtnRojo = createMacButton("BtnRojo", 18)
@@ -329,6 +342,11 @@ local NameLabel   = makeProfileLabel("NameLabel",   100, 16, 360, 26, 22, Color3
 local OnlineLabel = makeProfileLabel("OnlineLabel", 100, 46, 200, 16, 15, Color3.fromRGB(84, 165, 98))
 local HeaderLabel = makeProfileLabel("HeaderLabel",  20, 100, 300, 24, 18, Color3.fromRGB(110, 75, 50))
 
+HeaderLabel.AnchorPoint = Vector2.new(0.5, 0)
+HeaderLabel.Position = UDim2.new(0.5, 0, 0, 100)
+HeaderLabel.Size = UDim2.new(0, 340, 0, 24)
+HeaderLabel.TextXAlignment = Enum.TextXAlignment.Center
+
 local RankRow = Instance.new("Frame")
 RankRow.Name = "RankRow"
 RankRow.Position = UDim2.new(0, 100, 0, 64)
@@ -368,10 +386,11 @@ for i, style in ipairs(userRanks) do
 	RankLabels[i] = {label = l, style = style}
 end
 
+-- ONLINE DOT MOVIDO UN POQUITO MÁS A LA DERECHA (De 155 a 175)
 local OnlineDot = Instance.new("Frame")
 OnlineDot.Name = "OnlineDot"
 OnlineDot.AnchorPoint = Vector2.new(0.5, 0.5)
-OnlineDot.Position = UDim2.new(0, 140, 0, 54)
+OnlineDot.Position = UDim2.new(0, 175, 0, 54)
 OnlineDot.Size = UDim2.new(0, 0, 0, 0)
 OnlineDot.BackgroundColor3 = Color3.fromRGB(110, 205, 125)
 OnlineDot.BorderSizePixel = 0
@@ -384,12 +403,12 @@ OnlineDotCorner.Parent = OnlineDot
 
 local SearchIcon = Instance.new("TextButton")
 SearchIcon.Name = "SearchIcon"
-SearchIcon.AnchorPoint = Vector2.new(1, 0)
-SearchIcon.Position = UDim2.new(1, -34, 0, 99)
+SearchIcon.AnchorPoint = Vector2.new(0.5, 0)
+SearchIcon.Position = UDim2.new(0.5, 155, 0, 99)
 SearchIcon.Size = UDim2.new(0, 26, 0, 26)
 SearchIcon.BackgroundTransparency = 1
 SearchIcon.AutoButtonColor = false
-SearchIcon.Text = utf8.char(0x1F50D)
+SearchIcon.Text = "\u{1F50D}"
 SearchIcon.TextSize = 18
 SearchIcon.TextTransparency = 1
 SearchIcon.Visible = false
@@ -398,8 +417,9 @@ SearchIcon.Parent = ProfileContent
 
 local SearchBox = Instance.new("TextBox")
 SearchBox.Name = "SearchBox"
-SearchBox.Position = UDim2.new(0, 20, 0, 98)
-SearchBox.Size = UDim2.new(0, 390, 0, 28)
+SearchBox.AnchorPoint = Vector2.new(0.5, 0)
+SearchBox.Position = UDim2.new(0.5, 0, 0, 98)
+SearchBox.Size = UDim2.new(0, 340, 0, 28)
 SearchBox.BackgroundColor3 = Color3.fromRGB(255, 251, 232)
 SearchBox.BorderSizePixel = 0
 SearchBox.Text = ""
@@ -430,8 +450,9 @@ SearchPadding.Parent = SearchBox
 
 local ListFrame = Instance.new("ScrollingFrame")
 ListFrame.Name = "ListFrame"
-ListFrame.Position = UDim2.new(0, 20, 0, 128)
-ListFrame.Size = UDim2.new(0, 290, 0, 58)
+ListFrame.AnchorPoint = Vector2.new(0.5, 0)
+ListFrame.Position = UDim2.new(0.5, 0, 0, 128)
+ListFrame.Size = UDim2.new(0, 340, 0, 58)
 ListFrame.BackgroundTransparency = 1
 ListFrame.BorderSizePixel = 0
 ListFrame.ScrollBarThickness = 3
@@ -449,14 +470,15 @@ ListLayout.Parent = ListFrame
 
 local EmptyLabel = Instance.new("TextLabel")
 EmptyLabel.Name = "EmptyLabel"
-EmptyLabel.Position = UDim2.new(0, 20, 0, 134)
-EmptyLabel.Size = UDim2.new(0, 290, 0, 20)
+EmptyLabel.AnchorPoint = Vector2.new(0.5, 0)
+EmptyLabel.Position = UDim2.new(0.5, 0, 0, 134)
+EmptyLabel.Size = UDim2.new(0, 340, 0, 20)
 EmptyLabel.BackgroundTransparency = 1
 EmptyLabel.Text = "No scripts yet"
 EmptyLabel.TextColor3 = Color3.fromRGB(150, 120, 100)
 EmptyLabel.TextSize = 15
 EmptyLabel.Font = Enum.Font.GothamBold
-EmptyLabel.TextXAlignment = Enum.TextXAlignment.Left
+EmptyLabel.TextXAlignment = Enum.TextXAlignment.Center
 EmptyLabel.Visible = false
 EmptyLabel.ZIndex = 6
 EmptyLabel.Parent = ProfileContent
@@ -642,15 +664,17 @@ do
 
 	local keyBtn = Instance.new("TextButton")
 	keyBtn.Name = "KeybindBtn"
-	keyBtn.Position = UDim2.new(0, 20, 0, 62)
-	keyBtn.Size = UDim2.new(0, 200, 0, 30)
+	keyBtn.AnchorPoint = Vector2.new(0.5, 0)
+	keyBtn.Position = UDim2.new(0.5, 0, 0, 62)
+	keyBtn.Size = UDim2.new(1, -40, 0, 36)
 	keyBtn.BackgroundColor3 = CREAM
 	keyBtn.BorderSizePixel = 0
 	keyBtn.Text = "M"
 	keyBtn.TextColor3 = BROWN
-	keyBtn.TextSize = 15
+	keyBtn.TextSize = 16
 	keyBtn.Font = Enum.Font.GothamBold
 	keyBtn.AutoButtonColor = false
+	keyBtn.TextXAlignment = Enum.TextXAlignment.Center
 	keyBtn.ZIndex = 7
 	keyBtn.Parent = settings
 	corner(keyBtn, UDim.new(0, 10))
@@ -832,6 +856,18 @@ end)
 
 local StarbornFont = nil
 local fontLoadDone = false
+
+local function ApplyFontToAll(parent)
+	if not StarbornFont then return end
+	for _, obj in ipairs(parent:GetDescendants()) do
+		if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+			if obj.Name ~= "SearchIcon" then
+				pcall(function() obj.FontFace = StarbornFont end)
+			end
+		end
+	end
+end
+
 local function LoadStarbornFont()
 	if not (isfile and writefile and getcustomasset) then return end
 	local ttfFile = "Starborn.ttf"
@@ -851,14 +887,15 @@ local function LoadStarbornFont()
 		local family = getcustomasset(jsonFile)
 		StarbornFont = Font.new(family, Enum.FontWeight.Regular, Enum.FontStyle.Normal)
 
-		for _, obj in ipairs(ProfileContainer:GetDescendants()) do
-			if (obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox")) and obj.Name ~= "SearchIcon" then
-				obj.FontFace = StarbornFont
+		ApplyFontToAll(ScreenGui)
+		
+		ScreenGui.DescendantAdded:Connect(function(obj)
+			if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+				if obj.Name ~= "SearchIcon" then
+					pcall(function() obj.FontFace = StarbornFont end)
+				end
 			end
-		end
-		if KeyTitle then KeyTitle.FontFace = StarbornFont end
-		if KeyInput then KeyInput.FontFace = StarbornFont end
-		if EnterText then EnterText.FontFace = StarbornFont end
+		end)
 	end)
 end
 task.spawn(function()
@@ -906,7 +943,7 @@ do
 
 	local function applyFont(obj)
 		pcall(function()
-			if StarbornFont then obj.FontFace = StarbornFont else obj.Font = Enum.Font.GothamBold end
+			if StarbornFont and obj.Name ~= "SearchIcon" then obj.FontFace = StarbornFont else obj.Font = Enum.Font.GothamBold end
 		end)
 	end
 
@@ -955,10 +992,7 @@ do
 	local function SetExclusiveActive(toggleName)
 		for _, g in pairs(ExclusiveGroups) do
 			for _, n in ipairs(g.toggles) do
-				if n == toggleName then
-					g.activeName = toggleName
-					return
-				end
+				if n == toggleName then g.activeName = toggleName return end
 			end
 		end
 	end
@@ -1169,12 +1203,7 @@ do
 					if not canActivate then return end
 				end
 				active = v
-				if active then
-					registerUsage()
-					SetExclusiveActive(text)
-				else
-					ClearExclusiveActive(text)
-				end
+				if active then registerUsage() SetExclusiveActive(text) else ClearExclusiveActive(text) end
 				setVisual(active)
 				pcall(callback, active)
 			end,
@@ -1366,19 +1395,20 @@ do
 		end)
 	end)
 
+	-- FUNCIÓN DE LIMPIEZA INTACTA: Segura para no corromper otros juegos, pero sigue borrando viejas UIs nuestras
 	Library.cleanGuis = function(names)
 		if not names then return end
 		local function scan(parent)
 			for _, gui in ipairs(parent:GetChildren()) do
 				for _, n in ipairs(names) do
-					if gui.Name == n or gui.Name:lower():find(n:lower(), 1, true) then
+					if gui.Name == n or (string.find(gui.Name:lower(), n:lower(), 1, true)) then
 						pcall(function() gui:Destroy() end)
 					end
 				end
 			end
 		end
 		scan(player:WaitForChild("PlayerGui"))
-		scan(game:GetService("CoreGui"))
+		if gethui then pcall(function() scan(gethui()) end) end
 	end
 end
 
@@ -1504,7 +1534,6 @@ local function PlayProfileAnimation(skipPassword)
 	task.wait(0.1)
 
 	typeText(OnlineLabel, "Online", 0.06)
-	OnlineDot.Position = UDim2.new(0, 100 + OnlineLabel.TextBounds.X + 10, 0, 54)
 	TweenService:Create(OnlineDot, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 		Size = UDim2.new(0, 9, 0, 9)
 	}):Play()
@@ -1576,160 +1605,9 @@ end
 
 local WIN_W, WIN_H = 480, 300
 local BUBBLE_SIZE = 50
-local GENIE_STRIPS = 24
-local GENIE_LAG = 0.55
-local DOCK_ICON_W = 44
-local GENIE_TIME_MIN = 0.55
-local GENIE_TIME_OPEN = 0.5
-local GENIE_LAG_OPEN = 0.4
-local SETTLE_TIME = 0.35
-local SETTLE_AMOUNT = 0.03
-
-local GenieHolder = Instance.new("Frame")
-GenieHolder.Name = "GenieHolder"
-GenieHolder.Size = UDim2.new(1, 0, 1, 0)
-GenieHolder.BackgroundTransparency = 1
-GenieHolder.Active = false
-GenieHolder.Visible = false
-GenieHolder.ZIndex = 9
-GenieHolder.Parent = ScreenGui
-
 local isMinimized = false
 local isAnimating = false
-local savedL, savedT = 0, 0
-
-local function getBubbleCenter()
-	local screen = ScreenGui.AbsoluteSize
-	local pos = Burbuja.Position
-	return pos.X.Scale * screen.X + pos.X.Offset, pos.Y.Scale * screen.Y + pos.Y.Offset
-end
-
-local function buildGenie(dir)
-	local template = MainFrame:Clone()
-	template.Visible = true
-	template.Active = false
-	template.Position = UDim2.fromOffset(0, 0)
-	template.Size = UDim2.fromOffset(WIN_W, WIN_H)
-	template.ImageTransparency = 0
-	for _, d in ipairs(template:GetDescendants()) do
-		pcall(function() d.Interactable = false end)
-	end
-
-	local h0 = WIN_H / GENIE_STRIPS
-	local strips = {}
-	for k = 1, GENIE_STRIPS do
-		local src = (dir == 1) and (GENIE_STRIPS + 1 - k) or k
-
-		local frame = Instance.new("Frame")
-		frame.Name = "GenieStrip"
-		frame.BackgroundTransparency = 1
-		frame.BorderSizePixel = 0
-		frame.ClipsDescendants = true
-		frame.Active = false
-		frame.Parent = GenieHolder
-
-		local inner = Instance.new("Frame")
-		inner.BackgroundTransparency = 1
-		inner.BorderSizePixel = 0
-		inner.Size = UDim2.fromOffset(WIN_W, WIN_H)
-		inner.Parent = frame
-
-		local uiScale = Instance.new("UIScale")
-		uiScale.Parent = inner
-
-		local copy = template:Clone()
-		copy.Position = UDim2.fromOffset(0, -(src - 1) * h0)
-		copy.Parent = inner
-
-		strips[k] = {frame = frame, scale = uiScale}
-	end
-	template:Destroy()
-	return strips
-end
-
-local function layoutGenie(strips, geom, p)
-	local n = #strips
-	local h0 = WIN_H / n
-	local sEnd = DOCK_ICON_W / WIN_W
-	local hEnd = WIN_H * sEnd
-	local cx0 = geom.L + WIN_W / 2
-	local edge = 0
-
-	for k = 1, n do
-		local kc = (k - 0.5) / n
-		local q = math.clamp(p * (1 + geom.lag) - geom.lag * kc, 0, 1)
-		local e = q * q * (3 - 2 * q)
-		local s = 1 + (sEnd - 1) * e
-		local w, h = WIN_W * s, h0 * s
-		local cx = cx0 + (geom.dockX - cx0) * e
-
-		if k == 1 then
-			local e0 = (geom.dir == 1) and (geom.T + WIN_H) or geom.T
-			local e1 = geom.dockY + geom.dir * hEnd / 2
-			edge = e0 + (e1 - e0) * e
-		end
-
-		local top
-		if geom.dir == 1 then
-			top = edge - h
-			edge = top
-		else
-			top = edge
-			edge = edge + h
-		end
-
-		local st = strips[k]
-		st.scale.Scale = s
-		st.frame.Size = UDim2.fromOffset(w, h + 1)
-		st.frame.Position = UDim2.fromOffset(cx - w / 2, top)
-	end
-end
-
-local function runGenie(strips, geom, fromP, toP, duration)
-	local startTime = os.clock()
-	while true do
-		local t = math.clamp((os.clock() - startTime) / duration, 0, 1)
-		layoutGenie(strips, geom, fromP + (toP - fromP) * t)
-		if t >= 1 then break end
-		RunService.RenderStepped:Wait()
-	end
-end
-
-local function destroyGenie(strips)
-	for _, st in ipairs(strips) do
-		st.frame:Destroy()
-	end
-	GenieHolder.Visible = false
-end
-
-local function settleGenie(strips, geom)
-	local n = #strips
-	local h0 = WIN_H / n
-	local cx0 = geom.L + WIN_W / 2
-	local cy0 = geom.T + WIN_H / 2
-	local startTime = os.clock()
-	while true do
-		local t = math.clamp((os.clock() - startTime) / SETTLE_TIME, 0, 1)
-		local s = 1 + SETTLE_AMOUNT * (math.sin(math.pi * t) ^ 2)
-		local w, h = WIN_W * s, h0 * s
-		local winTop = cy0 - WIN_H * s / 2
-		for k = 1, n do
-			local src = (geom.dir == 1) and (n + 1 - k) or k
-			local st = strips[k]
-			st.scale.Scale = s
-			st.frame.Size = UDim2.fromOffset(w, h + 1)
-			st.frame.Position = UDim2.fromOffset(cx0 - w / 2, winTop + (src - 1) * h)
-		end
-		if t >= 1 then break end
-		RunService.RenderStepped:Wait()
-	end
-end
-
-local function makeGeom(lag)
-	local dockX, dockY = getBubbleCenter()
-	local dir = (dockY >= savedT + WIN_H / 2) and 1 or -1
-	return {L = savedL, T = savedT, dir = dir, dockX = dockX, dockY = dockY, lag = lag}
-end
+local savedPos = nil
 
 local function MinimizarVentana()
 	if isAnimating or isMinimized then return end
@@ -1743,26 +1621,37 @@ local function MinimizarVentana()
 
 	if dockWanted then
 		hideDock()
-		task.wait(0.2)
 	end
 
-	savedL, savedT = MainFrame.AbsolutePosition.X, MainFrame.AbsolutePosition.Y
-	local strips
-	local ok, err = pcall(function()
-		local geom = makeGeom(GENIE_LAG)
-		strips = buildGenie(geom.dir)
-		layoutGenie(strips, geom, 0)
-		GenieHolder.Visible = true
-		MainFrame.Visible = false
-		runGenie(strips, geom, 0, 1, GENIE_TIME_MIN)
-	end)
+	savedPos = MainFrame.Position
+
+	TweenService:Create(MainFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Position = UDim2.new(savedPos.X.Scale, savedPos.X.Offset, savedPos.Y.Scale, savedPos.Y.Offset - 15),
+		Rotation = -2
+	}):Play()
+	TweenService:Create(MainScale, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Scale = 1.03
+	}):Play()
+	
+	task.wait(0.15) 
+
+	local minTweenPos = TweenService:Create(MainFrame, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+		Position = Burbuja.Position,
+		Rotation = 15
+	})
+	local minTweenScale = TweenService:Create(MainScale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+		Scale = 0
+	})
+
+	minTweenPos:Play()
+	minTweenScale:Play()
+	minTweenScale.Completed:Wait()
+
 	MainFrame.Visible = false
-	if strips then destroyGenie(strips) else GenieHolder.Visible = false end
-	if not ok then warn("[Pompompurin] error en la animacion de minimizar:", err) end
 
 	Burbuja.Size = UDim2.new(0, 0, 0, 0)
 	Burbuja.Visible = true
-	TweenService:Create(Burbuja, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+	TweenService:Create(Burbuja, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 		Size = UDim2.new(0, BUBBLE_SIZE, 0, BUBBLE_SIZE)
 	}):Play()
 
@@ -1774,38 +1663,33 @@ function ReabrirVentana()
 	if isAnimating or not isMinimized then return end
 	isAnimating = true
 
-	local strips
-	local ok, err = pcall(function()
-		local screen = ScreenGui.AbsoluteSize
-		savedL, savedT = (screen.X - WIN_W) / 2, (screen.Y - WIN_H) / 2
-		MainFrame.Position = UDim2.new(0.5, -WIN_W / 2, 0.5, -WIN_H / 2)
-		local geom = makeGeom(GENIE_LAG_OPEN)
-
-		local hideTime = 0.15
-		local hideStart = os.clock()
-		TweenService:Create(Burbuja, TweenInfo.new(hideTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-			Size = UDim2.new(0, 0, 0, 0)
-		}):Play()
-
-		OcultarElementos(true)
-		MainFrame.Size = UDim2.new(0, WIN_W, 0, WIN_H)
-		MainFrame.ImageTransparency = 0
-		strips = buildGenie(geom.dir)
-		layoutGenie(strips, geom, 1)
-
-		local rest = hideTime - (os.clock() - hideStart)
-		if rest > 0 then task.wait(rest) end
-		Burbuja.Visible = false
-		GenieHolder.Visible = true
-
-		runGenie(strips, geom, 1, 0, GENIE_TIME_OPEN)
-		settleGenie(strips, geom)
-	end)
-
-	MainFrame.Visible = true
+	local hideTween = TweenService:Create(Burbuja, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+		Size = UDim2.new(0, 0, 0, 0)
+	})
+	hideTween:Play()
+	hideTween.Completed:Wait()
 	Burbuja.Visible = false
-	if strips then destroyGenie(strips) else GenieHolder.Visible = false end
-	if not ok then warn("[Pompompurin] error en la animacion de reabrir:", err) end
+
+	OcultarElementos(true)
+	
+	local targetPos = savedPos or UDim2.new(0.5, 0, 0.5, 0)
+	MainFrame.Position = Burbuja.Position
+	MainFrame.Rotation = 20
+	MainScale.Scale = 0
+	MainFrame.Visible = true
+
+	local openTweenPos = TweenService:Create(MainFrame, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Position = targetPos,
+		Rotation = 0
+	})
+	local openTweenScale = TweenService:Create(MainScale, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Scale = 1
+	})
+
+	openTweenPos:Play()
+	openTweenScale:Play()
+	openTweenScale.Completed:Wait()
+
 	if dockWanted then showDock() end
 
 	isMinimized = false
@@ -1892,6 +1776,7 @@ do
 		Animations = detachedAnimations,
 	}
 	Library.Tabs = {MainScript = UIX.TabMain, Extra = UIX.TabExtra}
+	
 	Library.Services = {
 		Players = Players, Player = player, PlayerGui = player:WaitForChild("PlayerGui"),
 		TweenService = TweenService, UserInputService = UserInputService,
