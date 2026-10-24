@@ -59,6 +59,7 @@ do
 		["b92b08a"]      = {"PUTA", "MEMBER"},
 		["astrixrsz"]    = {"MEMBER"},
 		["danterafael15"] = {"PUTA", "MEMBER"},
+		["28kxlucaz"] = {"PUTA", "MEMBER"},
 	}
 
 	local POMPOM = {
