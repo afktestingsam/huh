@@ -54,7 +54,7 @@ local userRanks = {}
 do
 	local WHITELIST = {
 		["ikeaaaa_4"]     = {"OWNER"},
-		["chiquille_xd"] = {"NOVIO", "TESTER"},
+		[""] = {"NOVIO", "TESTER"},
 		["jerehvo"]      = {"PUTA", "TESTER"},
 		["b92b08a"]      = {"PUTA", "MEMBER"},
 		["astrixrsz"]    = {"MEMBER"},
